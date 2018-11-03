@@ -42,18 +42,24 @@ exports = Class(GC.Application, function () {
       RED: 'red',
       YELLOW: 'yellow'
     },
+
+    NEXT_BULLET_SCALE: 0.65,
+    NEXT_BULLET_Y_OFFSET: 80,
   };
 
   this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
   this.constants.GRID_ITEM_HEIGHT = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.85;
   this.constants.BUBBLE_SCALED_SIZE = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE;
   this.constants.BULLET_SCALED_SIZE = this.constants.BUBBLE_SIZE * this.constants.BULLET_SCALE;
+  this.constants.NEXT_BULLET_SCALED_SIZE = this.constants.BUBBLE_SIZE * this.constants.NEXT_BULLET_SCALE;
 
   this.initUI = function () {
     app = this;
 
     this.aimDirection = new Vec2D({x:0, y:-1});
     this.cannonAngle = 0;
+    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
 
     this.onInputStart = (evt, point) => {
       this.startAim(point);
@@ -129,6 +135,21 @@ exports = Class(GC.Application, function () {
       image: "resources/images/ui/cannon_top.png"
     });
 
+    this.nextBullet = new ImageView({
+      superview: this.view,
+
+      x: (this.constants.BASE_WIDTH - this.constants.NEXT_BULLET_SCALED_SIZE) / 2,
+      y: this.constants.BASE_HEIGHT - this.constants.NEXT_BULLET_Y_OFFSET,
+
+      width: this.constants.NEXT_BULLET_SCALED_SIZE,
+      height: this.constants.NEXT_BULLET_SCALED_SIZE,
+
+      //centerX: true,
+
+      layout: "box",
+      image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png"
+    });
+
     var cannonPosition = this.cannonRoot.getPosition();
     this.cannonPoint = new Vec2D({ x: cannonPosition.x, y: cannonPosition.y });
 
@@ -140,7 +161,6 @@ exports = Class(GC.Application, function () {
       width: baseWidth
     });
 
-    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
     this.bullet = new Entity({});
     this.bullet.view.updateOpts({
       superview: this.view,
@@ -239,9 +259,13 @@ exports = Class(GC.Application, function () {
     this.isShooting = false;
     this.bullet.active = false;
     this.bullet.view.style.visible = false;
-    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.currentBulletType = this.nextBulletType;
     this.bullet.view.updateOpts({
       image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png",
+    });
+    this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.nextBullet.updateOpts({
+      image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png",
     });
     this.bullet.x = -999;
     this.bullet.vx = 0;
