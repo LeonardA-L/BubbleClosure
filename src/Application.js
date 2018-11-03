@@ -3,6 +3,7 @@ import ui.View as View;
 import ui.ImageView as ImageView;
 import ui.ImageScaleView as ImageScaleView;
 import src.Tools as Tools;
+import src.HexGrid as HexGrid;
 import entities.Entity as Entity;
 import entities.EntityPool as EntityPool;
 import device;
@@ -30,7 +31,7 @@ exports = Class(GC.Application, function () {
     BUBBLE_SIZE: 80,
     BULLET_SCALE: 0.74,
     BULLET_Y_OFFSET: -8,
-    BULLET_VELOCITY: 0.5,
+    BULLET_VELOCITY: 0.6,
     GRID_WIDTH: 10, // in cols
     GRID_HEIGHT: 8, // in rows
 
@@ -45,6 +46,8 @@ exports = Class(GC.Application, function () {
 
     NEXT_BULLET_SCALE: 0.65,
     NEXT_BULLET_Y_OFFSET: 80,
+
+    MIN_BUBBLES_TO_POP: 3
   };
 
   this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
@@ -187,14 +190,16 @@ exports = Class(GC.Application, function () {
       height: 10
     });*/
 
+    this.grid = new HexGrid();
+
     this.bubbles = new Bubbles({ parent: this.view });
 
     for(var i=0;i<this.constants.GRID_HEIGHT;i++){
       for(var j=0;j<this.constants.GRID_WIDTH - i%2;j++){
-        this.bubbles.obtain(Tools.randomProperty(this.constants.COLORS), j, i, {});
+        this.insertInGrid(Tools.randomProperty(this.constants.COLORS), j, i);
       }
     }
-    //debugger;
+    debugger;
 
     GC.app.view.style.scale = this.constants.SCALE;
   };
@@ -223,6 +228,12 @@ exports = Class(GC.Application, function () {
     }
   }
 
+  this.insertInGrid = function(_type, _col, _row) {
+    const bb = this.bubbles.obtain(_type, _col, _row, {});
+    this.grid.register(bb, _col, _row);
+    return bb;
+  }
+
   this.onBulletCollision = function(_bubble) {
     const bulletCenter = new Vec2D({x: this.bullet.x + this.constants.BULLET_SCALED_SIZE / 2, y: this.bullet.y + this.constants.BULLET_SCALED_SIZE / 2});
     
@@ -230,9 +241,42 @@ exports = Class(GC.Application, function () {
     //this.y = this.row * app.constants.GRID_ITEM_HEIGHT;
     const row = Math.floor(bulletCenter.y / this.constants.GRID_ITEM_HEIGHT);
     const col = Math.floor((bulletCenter.x - ((row % 2) * this.constants.GRID_ITEM_WIDTH / 2)) / this.constants.GRID_ITEM_WIDTH);
-    this.bubbles.obtain(this.currentBulletType, col, row, {});
+    var newBubble = this.insertInGrid(this.currentBulletType, col, row);
+
+    this.triggerGridTest(newBubble);
 
     this.discardBullet();
+  }
+
+  this.triggerGridTest = function(_bubble) {
+    var neighbours = this.grid.neighbours(_bubble.col, _bubble.row);
+    var inspected = {};
+    inspected[_bubble.row + '-' + _bubble.col] = true;
+    var cluster = [_bubble];
+
+    while(neighbours.length) {
+      var neighbour = neighbours.pop();
+      if(neighbour.type === _bubble.type)
+      {
+        cluster.push(neighbour);
+        var childNeighbours = this.grid.neighbours(neighbour.col, neighbour.row);
+        for(var i = 0; i < childNeighbours.length; i++) {
+          if(!inspected[childNeighbours[i].row + '-' + childNeighbours[i].col]) {
+            neighbours.push(childNeighbours[i]);
+          }
+        }
+      }
+      inspected[neighbour.row + '-' + neighbour.col] = true;
+    }
+    cluster = [...new Set(cluster)];
+
+    if(cluster.length >= this.constants.MIN_BUBBLES_TO_POP) {
+      while(cluster.length) {
+        const bubbleToPop = cluster.pop();
+        this.grid.unregister(bubbleToPop.col, bubbleToPop.row);
+        bubbleToPop.release();
+      }
+    }
   }
 
   this.testBulletAgainstWalls = function() {
@@ -320,6 +364,7 @@ var Bubble = Class(Entity, function() {
   this.name = "Bubble";
   this.col = 0;
   this.row = 0;
+  this.type = undefined;
 
   this.place = function() {
     this.x = ((this.row % 2) * app.constants.GRID_ITEM_WIDTH / 2) + this.col * app.constants.GRID_ITEM_WIDTH;
@@ -330,6 +375,7 @@ var Bubble = Class(Entity, function() {
     sup.reset.call(this, _opts);
     this.col = _opts.col;
     this.row = _opts.row;
+    this.type = _opts.type;
     this.active = true;
     this.view.updateOpts(_opts);
     this.hitBounds.r = app.constants.BUBBLE_SCALED_SIZE / 2;
@@ -369,6 +415,7 @@ var Bubbles = Class(EntityPool, function() {
       height: app.constants.BUBBLE_SIZE * app.constants.BUBBLE_SCALE,
       col: _col,
       row: _row,
+      type: _type,
       isCircle: true,
       hitOpts: {
         radius: app.constants.BUBBLE_SIZE * app.constants.BUBBLE_SCALE / 2,
