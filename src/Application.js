@@ -140,15 +140,17 @@ exports = Class(GC.Application, function () {
       width: baseWidth
     });
 
+    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
     this.bullet = new Entity({});
     this.bullet.view.updateOpts({
       superview: this.view,
-      image: "resources/images/bubbles/ball_blue.png",
+      image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png",
       layout: "box",
       width: this.constants.BUBBLE_SIZE,
       height: this.constants.BUBBLE_SIZE,
       scale: this.constants.BULLET_SCALE,
       isCircle: true,
+      bubbleType: this.currentBulletType,
       //backgroundColor: "#FF0000"
     });
     this.bullet.hitBounds.r = this.constants.BULLET_SCALED_SIZE / 2;
@@ -184,6 +186,7 @@ exports = Class(GC.Application, function () {
     this.bullet.active = true;
     this.bullet.vx = 0;
     this.bullet.vy = 0;
+    this.bullet.view.style.visible = true;
   }
 
   this.launchUI = function () {
@@ -200,14 +203,14 @@ exports = Class(GC.Application, function () {
     }
   }
 
-  this.onBulletCollision = function() {
+  this.onBulletCollision = function(_bubble) {
     const bulletCenter = new Vec2D({x: this.bullet.x + this.constants.BULLET_SCALED_SIZE / 2, y: this.bullet.y + this.constants.BULLET_SCALED_SIZE / 2});
     
     //this.x = ((this.row % 2) * app.constants.GRID_ITEM_WIDTH / 2) + this.col * app.constants.GRID_ITEM_WIDTH;
     //this.y = this.row * app.constants.GRID_ITEM_HEIGHT;
     const row = Math.floor(bulletCenter.y / this.constants.GRID_ITEM_HEIGHT);
     const col = Math.floor((bulletCenter.x - ((row % 2) * this.constants.GRID_ITEM_WIDTH / 2)) / this.constants.GRID_ITEM_WIDTH);
-    this.bubbles.obtain(Tools.randomProperty(this.constants.COLORS), col, row, {});
+    this.bubbles.obtain(this.currentBulletType, col, row, {});
 
     this.discardBullet();
   }
@@ -235,6 +238,14 @@ exports = Class(GC.Application, function () {
   this.discardBullet = function() {
     this.isShooting = false;
     this.bullet.active = false;
+    this.bullet.view.style.visible = false;
+    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.bullet.view.updateOpts({
+      image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png",
+    });
+    this.bullet.x = -999;
+    this.bullet.vx = 0;
+    this.resetBullet();
   }
 
   this.startAim = function(point) {
