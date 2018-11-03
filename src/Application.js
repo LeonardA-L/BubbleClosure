@@ -31,7 +31,12 @@ exports = Class(GC.Application, function () {
     BULLET_SCALE: 0.8,
     BULLET_Y_OFFSET: -8,
     BULLET_VELOCITY: 0.5,
+
+    BUBBLE_SCALE: 0.74,
   };
+
+  this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
+  this.constants.GRID_ITEM_HEIGHT = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.85;
 
   this.initUI = function () {
     app = this;
@@ -129,7 +134,7 @@ exports = Class(GC.Application, function () {
     //bullet.reset();
     this.resetBullet();
 
-    this.debugVvvv = new View({
+    /*this.debugVvvv = new View({
       superview: this.view,
       layout: "box",
       x: this.cannonPoint.x,
@@ -137,7 +142,24 @@ exports = Class(GC.Application, function () {
       backgroundColor : '#0000FF',
       width: 10,
       height: 10
+    });*/
+
+    this.gridRoot = new View({
+      superview: this.view,
+      layout: "box",
+      x: 0,
+      y: 0,
+      width: baseWidth
     });
+
+    this.bubbles = new Bubbles({ parent: this.gridRoot });
+
+    for(var i=0;i<5;i++){
+      for(var j=0;j<10 - i%2;j++){
+        this.bubbles.obtain(0, j, i, {});
+      }
+    }
+    //debugger;
 
     GC.app.view.style.scale = this.constants.SCALE;
   };
@@ -157,21 +179,23 @@ exports = Class(GC.Application, function () {
 
   this.tick = function(_dt) {
     this.bullet.update(_dt);
+    this.bubbles.update(_dt);
+
     if(this.isShooting)
       this.testBulletAgainstWalls();
   }
 
   this.testBulletAgainstWalls = function() {
     // Up & Down wall: discard
-    const bulletScaledRadius = this.constants.BULLET_SCALE * this.constants.BUBBLE_SIZE / 2;
-    if(this.bullet.y <= bulletScaledRadius || this.bullet.y >= this.constants.BASE_HEIGHT - bulletScaledRadius ) {
+    const bulletScaledSize = this.constants.BULLET_SCALE * this.constants.BUBBLE_SIZE;
+    if(this.bullet.y <= 0 || this.bullet.y >= this.constants.BASE_HEIGHT - bulletScaledSize) {
       this.discardBullet();
       //debugger;
     }
 
     // Left & Right walls: bounce
-    if(this.bullet.x <= bulletScaledRadius && this.bullet.vx < 0
-    || this.bullet.x >= this.constants.BASE_WIDTH - bulletScaledRadius  && this.bullet.vx > 0) {
+    if(this.bullet.x <= 0 && this.bullet.vx < 0
+    || this.bullet.x >= this.constants.BASE_WIDTH - bulletScaledSize  && this.bullet.vx > 0) {
       if(this.isDiscarding) { // Exception: when you shoot below the horizon
         this.discardBullet();
         return;
@@ -212,6 +236,9 @@ exports = Class(GC.Application, function () {
   this.shoot = function(point) {
     if(!this.aimPoint)
       return;
+    if(this.isShooting)
+      return;
+
     this.isShooting = true;
     this.isDiscarding = this.cannonAngle > this.constants.HALF_PI || this.cannonAngle < - this.constants.HALF_PI;
     this.bullet.vx = this.constants.BULLET_VELOCITY * this.aimDirection.x;
@@ -220,4 +247,66 @@ exports = Class(GC.Application, function () {
     delete this.aimPoint;
   }
 
+  this.reset = function(){
+    this.bubbles.reset();
+  }
+
+});
+
+var Bubble = Class(Entity, function() {
+  var sup = Entity.prototype;
+  this.name = "Bubble";
+  this.col = 0;
+  this.row = 0;
+
+  this.place = function() {
+    this.x = ((this.row % 2) * app.constants.GRID_ITEM_WIDTH / 2) + this.col * app.constants.GRID_ITEM_WIDTH;
+    this.y = this.row * app.constants.GRID_ITEM_HEIGHT;
+  }
+
+  this.reset = function(_, _, _opts) {
+    sup.reset.call(this, _opts);
+    this.col = _opts.col;
+    this.row = _opts.row;
+    this.active = true;
+    this.view.updateOpts(_opts);
+
+    this.place();
+    //debugger;
+  }
+
+  this.update = function(dt) {
+    sup.update.call(this, dt);
+  };
+});
+
+
+var Bubbles = Class(EntityPool, function() {
+  var sup = EntityPool.prototype;
+
+  this.init = function(opts) {
+    opts.ctor = Bubble;
+    sup.init.call(this, opts);
+  };
+
+  this.reset = function() {
+    sup.reset.call(this);
+  };
+
+  this.update = function(dt) {
+    sup.update.call(this, dt);
+  };
+
+  this.obtain = function(_type, _col, _row, _opts) {
+    var opts = Object.assign({
+      image: "resources/images/bubbles/ball_blue.png",
+      layout: "box",
+      width: app.constants.BUBBLE_SIZE * app.constants.BUBBLE_SCALE,
+      height: app.constants.BUBBLE_SIZE * app.constants.BUBBLE_SCALE,
+      col: _col,
+      row: _row,
+    }, _opts);
+
+    return sup.obtain.call(this, 0, 0, opts);
+  }
 });
