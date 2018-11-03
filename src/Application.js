@@ -146,6 +146,9 @@ exports = Class(GC.Application, function () {
     var cannonLength = this.aimDirection.multiply(this.constants.CANNON_TO_BASE_Y_OFFSET + this.constants.BULLET_Y_OFFSET);
     this.bullet.x = this.cannonPoint.x + cannonLength.x - this.constants.BULLET_SCALE * this.constants.BUBBLE_SIZE / 2;
     this.bullet.y = this.cannonPoint.y + cannonLength.y - this.constants.BULLET_SCALE * this.constants.BUBBLE_SIZE / 2;
+    this.bullet.active = true;
+    this.bullet.vx = 0;
+    this.bullet.vy = 0;
   }
 
   this.launchUI = function () {
@@ -154,11 +157,33 @@ exports = Class(GC.Application, function () {
 
   this.tick = function(_dt) {
     this.bullet.update(_dt);
-    this.testBulletAgainstWalls();
+    if(this.isShooting)
+      this.testBulletAgainstWalls();
   }
 
   this.testBulletAgainstWalls = function() {
+    // Up & Down wall: discard
+    const bulletScaledRadius = this.constants.BULLET_SCALE * this.constants.BUBBLE_SIZE / 2;
+    if(this.bullet.y <= bulletScaledRadius || this.bullet.y >= this.constants.BASE_HEIGHT - bulletScaledRadius ) {
+      this.discardBullet();
+      //debugger;
+    }
 
+    // Left & Right walls: bounce
+    if(this.bullet.x <= bulletScaledRadius && this.bullet.vx < 0
+    || this.bullet.x >= this.constants.BASE_WIDTH - bulletScaledRadius  && this.bullet.vx > 0) {
+      if(this.isDiscarding) { // Exception: when you shoot below the horizon
+        this.discardBullet();
+        return;
+      }
+      
+      this.bullet.vx *= -1;
+    }
+  }
+
+  this.discardBullet = function() {
+    this.isShooting = false;
+    this.bullet.active = false;
   }
 
   this.startAim = function(point) {
@@ -189,29 +214,10 @@ exports = Class(GC.Application, function () {
       return;
     this.isShooting = true;
     this.isDiscarding = this.cannonAngle > this.constants.HALF_PI || this.cannonAngle < - this.constants.HALF_PI;
-    this.bulletDirection = new Vec2D(this.aimDirection);
-    this.bullet.vx = this.constants.BULLET_VELOCITY * this.bulletDirection.x;
-    this.bullet.vy = this.constants.BULLET_VELOCITY * this.bulletDirection.y;
+    this.bullet.vx = this.constants.BULLET_VELOCITY * this.aimDirection.x;
+    this.bullet.vy = this.constants.BULLET_VELOCITY * this.aimDirection.y;
     //debugger;
     delete this.aimPoint;
   }
 
-});
-
-
-var Projectile = Class(Entity, function() {
-  var sup = Entity.prototype;
-  this.name = "Projectile";
-
-  this.init = function(opts) {
-    sup.init.call(this, opts);
-  };
-
-  this.update = function(dt) {
-    sup.update.call(this, dt);
-/*    var b = this.viewBounds;
-    if (this.y + b.y + b.h < app.player.getScreenY()) {
-      this.destroy();
-    }*/
-  };
 });
