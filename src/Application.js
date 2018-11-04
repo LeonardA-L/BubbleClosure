@@ -49,7 +49,8 @@ exports = Class(GC.Application, function () {
     NEXT_BULLET_SCALE: 0.65,
     NEXT_BULLET_Y_OFFSET: 80,
 
-    MIN_BUBBLES_TO_POP: 3
+    MIN_BUBBLES_TO_POP: 3,
+    POP_FREQUENCY: 2, // in frames
   };
 
   this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
@@ -265,6 +266,21 @@ exports = Class(GC.Application, function () {
       this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
       this.testBulletAgainstWalls();
     }
+
+    this.popBubbles();
+    this.frame ++;
+  }
+
+  this.popBubbles = function() {
+    if(!this.bubblesToDelete.length)
+      return;
+
+    if(this.frame % this.constants.POP_FREQUENCY != 0)
+      return;
+
+    const bubble = this.bubblesToDelete.pop();
+    bubble.active = false;
+    bubble.release();
   }
 
   this.updateAvailableColors = function() {
@@ -310,13 +326,14 @@ exports = Class(GC.Application, function () {
     }
 
     toBeDeleted.push(...this.findFloatingBubbles());
-
+    this.bubblesToDelete = [];
     while(toBeDeleted.length) {
       const bubbleToPop = toBeDeleted.pop();
       this.grid.unregister(bubbleToPop.col, bubbleToPop.row);
       bubbleToPop.toBeDeleted = true;
-      bubbleToPop.active = false;
-      bubbleToPop.release();
+      //bubbleToPop.active = false;
+      //bubbleToPop.release();
+      this.bubblesToDelete.push(bubbleToPop);
     }
 
     this.checkVictory();
@@ -420,14 +437,14 @@ exports = Class(GC.Application, function () {
     this.cannonAngle = this.aimDirection.getAngle() + this.constants.HALF_PI;
     this.cannonRoot.updateOpts({r: this.cannonAngle});
 
-    if(!this.isShooting) {
+    if(!this.isShooting && !this.bubblesToDelete.length) {
       this.resetBullet();
     }
   }
   this.shoot = function(point) {
     if(!this.aimPoint)
       return;
-    if(this.isShooting)
+    if(this.isShooting || this.bubblesToDelete.length)
       return;
 
     this.isShooting = true;
@@ -443,7 +460,9 @@ exports = Class(GC.Application, function () {
   }
 
   this.generateGame = function() {
+    this.frame = 0;
     this.bubbles.releaseAll();
+    this.bubblesToDelete = [];
 
     this.grid && delete this.grid;
     this.grid = new HexGrid();
