@@ -1,5 +1,5 @@
 function hash(_col, _row) {
-	return _row+'-'+_col;
+	return _row + '-' + _col;
 }
 
 exports = Class(Object, function() {
@@ -7,7 +7,7 @@ exports = Class(Object, function() {
 
 	this.register = function(_element, _col, _row) {
 		this.map[hash(_col, _row)] = _element;
-	}
+	};
 
 	this.unregister = function(_col, _row) {
 		const element = this.get(_col, _row);
@@ -16,11 +16,11 @@ exports = Class(Object, function() {
 
 		this.map[hash(_col, _row)] = undefined;
 		return element;
-	}
+	};
 
 	this.get = function(_col, _row) {
 		return this.map[hash(_col, _row)];
-	}
+	};
 
 	this.neighbours = function(_col, _row) {
 		var neigh = [];
@@ -39,16 +39,15 @@ exports = Class(Object, function() {
 		}
 
 		return neigh.filter(function (_el) {
-		  return _el != undefined;
+		  return !!_el;
 		});
-	}
+	};
 
 	this.getCluster = function(_startPoints, _testFn) {
-		var testFn = _testFn || ((e) => true);
+		var testFn = _testFn || (e => true);
 
 		var neighbours = [..._startPoints];
 	    var inspected = {};
-	    //inspected[_bubble.row + '-' + _bubble.col] = true;
 	    var cluster = [];
 
 	    while(neighbours.length) {
@@ -63,9 +62,9 @@ exports = Class(Object, function() {
 	          }
 	        }
 	      }
-	      inspected[neighbour.row + '-' + neighbour.col] = true;
+	      inspected[hash(neighbour.col, neighbour.row)] = true;
 	    }
 	    cluster = [...new Set(cluster)];
 	    return cluster;
-	}
+	};
 });
