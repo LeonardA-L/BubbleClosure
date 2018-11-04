@@ -4,6 +4,7 @@ import ui.ImageView as ImageView;
 import ui.ImageScaleView as ImageScaleView;
 import src.Tools as Tools;
 import src.HexGrid as HexGrid;
+import src.Menu as Menu;
 import entities.Entity as Entity;
 import entities.EntityPool as EntityPool;
 import device;
@@ -199,7 +200,7 @@ exports = Class(GC.Application, function () {
       this.shoot(point);
     };
 
-    this.pauseScreen = new View({
+    this.menu = new Menu({
       superview: this.view,
       layout: "box",
       x: 0,
@@ -209,64 +210,8 @@ exports = Class(GC.Application, function () {
       height: this.constants.BASE_HEIGHT,
       zIndex: 50
     });
-
-    this.startButton = new View({
-      superview: this.pauseScreen,
-      backgroundColor : '#0000AABB',
-      layout: "box",
-      centerX: true,
-      y: this.constants.BASE_HEIGHT * 0.55,
-      width: this.constants.BASE_WIDTH * 0.5,
-      height: 120
-    });
-    this.startButton.onInputStart = (evt, point) => {
-      this.startGame();
-    };
-
-    this.restartButton = new View({
-      superview: this.pauseScreen,
-      backgroundColor : '#AA00AABB',
-      layout: "box",
-      centerX: true,
-      y: this.constants.BASE_HEIGHT * 0.55,
-      width: this.constants.BASE_WIDTH * 0.5,
-      height: 120
-    });
-    this.restartButton.onInputStart = (evt, point) => {
-      this.reStartGame();
-    };
-
-    this.menuLogo = new View({
-      superview: this.pauseScreen,
-      backgroundColor : '#0000FF',
-      layout: "box",
-      centerX: true,
-      y: this.constants.BASE_HEIGHT * 0.2,
-      width: this.constants.BASE_WIDTH * 0.75,
-      height: 200
-    });
-
-    this.menuVictory = new View({
-      superview: this.pauseScreen,
-      backgroundColor : '#00FF00',
-      layout: "box",
-      centerX: true,
-      y: this.constants.BASE_HEIGHT * 0.2,
-      width: this.constants.BASE_WIDTH * 0.75,
-      height: 200
-    });
-
-    this.menuDefeat = new View({
-      superview: this.pauseScreen,
-      backgroundColor : '#FF0000',
-      layout: "box",
-      centerX: true,
-      y: this.constants.BASE_HEIGHT * 0.2,
-      width: this.constants.BASE_WIDTH * 0.75,
-      height: 200
-    });
-
-
+    this.menu.populate(this.startGame, this.reStartGame, this);
+    
     this.openPauseScreen({
       showLogo: true,
       showPlay: true
@@ -284,22 +229,13 @@ exports = Class(GC.Application, function () {
 
   */
   this.openPauseScreen = function(_menuOpts) {
-    this.menuLogo.updateOpts({visible : !!_menuOpts.showLogo});
-    this.menuVictory.updateOpts({visible : !!_menuOpts.showVictory});
-    this.menuDefeat.updateOpts({visible : !!_menuOpts.showDefeat});
-
-    this.startButton.updateOpts({visible : !!_menuOpts.showPlay});
-    this.restartButton.updateOpts({visible : !!_menuOpts.showReplay});
-
-    this.pauseScreen.updateOpts({visible : true});
-
+    this.menu.open(_menuOpts);
     this.toggleInputs(false);
-    //debugger;
   }
 
   this.startGame = function() {
+    this.menu.close();
     this.toggleInputs(true);
-    this.pauseScreen.updateOpts({visible : false});
   }
 
   this.reStartGame = function() {
