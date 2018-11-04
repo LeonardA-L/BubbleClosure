@@ -22,7 +22,6 @@ var baseWidth = boundsWidth; //576
 var baseHeight =  device.screen.height * (boundsWidth / device.screen.width); //864
 var scale = device.screen.width / baseWidth; //1
 
-var app;
 exports = Class(GC.Application, function () {
   config.BOUNDS_WIDTH = boundsWidth,
   config.BOUNDS_HEIGHT = boundsHeight,
@@ -36,8 +35,6 @@ exports = Class(GC.Application, function () {
   config.NEXT_BULLET_SCALED_SIZE = config.BUBBLE_SIZE * config.NEXT_BULLET_SCALE;
 
   this.initUI = function () {
-    app = this;
-
     this.aimDirection = new Vec2D({x:0, y:-1});
     this.cannonAngle = 0;
 
@@ -346,7 +343,7 @@ exports = Class(GC.Application, function () {
   }
 
   this.insertInGrid = function(_type, _col, _row) {
-    const bb = this.bubbles.obtain(_type, _col, _row, {});
+    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view});
     this.grid.register(bb, _col, _row);
     return bb;
   }
@@ -649,7 +646,6 @@ var Bubbles = Class(EntityPool, function() {
 
   this.obtain = function(_type, _col, _row, _opts) {
     var opts = Object.assign({
-      superview: app.view,
       image: "resources/images/bubbles/ball_" + _type + ".png",
       layout: "box",
       width: config.BUBBLE_SIZE * config.BUBBLE_SCALE,
