@@ -32,8 +32,8 @@ exports = Class(GC.Application, function () {
     BULLET_SCALE: 0.74,
     BULLET_Y_OFFSET: -8,
     BULLET_VELOCITY: 0.6,
-    GRID_WIDTH: 3, // in cols 10
-    GRID_HEIGHT: 1, // in rows 8
+    GRID_WIDTH: 10, // in cols 10
+    GRID_HEIGHT: 8, // in rows 8
     GRID_DEFEAT_THRESHOLD: 14, // in rows 15
 
     BUBBLE_SCALE: 0.74,
@@ -62,8 +62,6 @@ exports = Class(GC.Application, function () {
 
     this.aimDirection = new Vec2D({x:0, y:-1});
     this.cannonAngle = 0;
-    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
-    this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
 
     this.background = new ImageScaleView({
       superview: this,
@@ -141,7 +139,6 @@ exports = Class(GC.Application, function () {
       //centerX: true,
 
       layout: "box",
-      image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png"
     });
 
     var cannonPosition = this.cannonRoot.getPosition();
@@ -158,18 +155,15 @@ exports = Class(GC.Application, function () {
     this.bullet = new Entity({});
     this.bullet.view.updateOpts({
       superview: this.view,
-      image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png",
       layout: "box",
       width: this.constants.BUBBLE_SIZE,
       height: this.constants.BUBBLE_SIZE,
       scale: this.constants.BULLET_SCALE,
       isCircle: true,
-      bubbleType: this.currentBulletType,
       //backgroundColor: "#FF0000"
     });
     this.bullet.hitBounds.r = this.constants.BULLET_SCALED_SIZE / 2;
     this.bullet.isCircle = true;
-    this.resetBullet();
 
     /*this.debugVvvv = new View({
       superview: this.view,
@@ -180,16 +174,10 @@ exports = Class(GC.Application, function () {
       width: 10,
       height: 10
     });*/
-
-    this.grid = new HexGrid();
-
+    
     this.bubbles = new Bubbles({ parent: this.view });
 
-    for(var i=0;i<this.constants.GRID_HEIGHT;i++){
-      for(var j=0;j<this.constants.GRID_WIDTH - i%2;j++){
-        this.insertInGrid(Tools.randomProperty(this.constants.COLORS), j, i);
-      }
-    }
+    this.generateGame();
     //debugger;
 
     this.eventReceiver = new View({
@@ -235,6 +223,19 @@ exports = Class(GC.Application, function () {
       this.startGame();
     };
 
+    this.restartButton = new View({
+      superview: this.pauseScreen,
+      backgroundColor : '#AA00AABB',
+      layout: "box",
+      centerX: true,
+      y: this.constants.BASE_HEIGHT * 0.55,
+      width: this.constants.BASE_WIDTH * 0.5,
+      height: 120
+    });
+    this.restartButton.onInputStart = (evt, point) => {
+      this.reStartGame();
+    };
+
     this.menuLogo = new View({
       superview: this.pauseScreen,
       backgroundColor : '#0000FF',
@@ -265,8 +266,10 @@ exports = Class(GC.Application, function () {
       height: 200
     });
 
+
     this.openPauseScreen({
-      showLogo: true
+      showLogo: true,
+      showPlay: true
     });
 
     //debugger;
@@ -285,6 +288,9 @@ exports = Class(GC.Application, function () {
     this.menuVictory.updateOpts({visible : !!_menuOpts.showVictory});
     this.menuDefeat.updateOpts({visible : !!_menuOpts.showDefeat});
 
+    this.startButton.updateOpts({visible : !!_menuOpts.showPlay});
+    this.restartButton.updateOpts({visible : !!_menuOpts.showReplay});
+
     this.pauseScreen.updateOpts({visible : true});
 
     this.toggleInputs(false);
@@ -294,6 +300,11 @@ exports = Class(GC.Application, function () {
   this.startGame = function() {
     this.toggleInputs(true);
     this.pauseScreen.updateOpts({visible : false});
+  }
+
+  this.reStartGame = function() {
+    this.generateGame();
+    this.startGame();
   }
 
   this.resetBullet = function() {
@@ -371,7 +382,8 @@ exports = Class(GC.Application, function () {
 
     // Trigger Defeat
     this.openPauseScreen({
-      showDefeat: true
+      showDefeat: true,
+      showReplay: true
     });
   }
 
@@ -382,7 +394,8 @@ exports = Class(GC.Application, function () {
 
     // Trigger Victory
     this.openPauseScreen({
-      showVictory: true
+      showVictory: true,
+      showReplay: true
     });
   }
 
@@ -481,6 +494,32 @@ exports = Class(GC.Application, function () {
 
   this.reset = function(){
     this.bubbles.reset();
+  }
+
+  this.generateGame = function() {
+    this.bubbles.releaseAll();
+
+    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
+
+    this.nextBullet.updateOpts({
+      image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png"
+    });
+
+    this.bullet.view.updateOpts({
+      image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png"
+    });
+    this.bullet.bubbleType = this.currentBulletType;
+    this.resetBullet();
+
+    this.grid && delete this.grid;
+    this.grid = new HexGrid();
+
+    for(var i=0;i<this.constants.GRID_HEIGHT;i++){
+      for(var j=0;j<this.constants.GRID_WIDTH - i%2;j++){
+        this.insertInGrid(Tools.randomProperty(this.constants.COLORS), j, i);
+      }
+    }
   }
 
 });
