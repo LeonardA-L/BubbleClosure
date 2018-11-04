@@ -56,7 +56,10 @@ exports = Class(GC.Application, function () {
     DEBOUNCE_UI_UPDATE: 3,
 
     BUBBLE_FLOATING_SCORE: 2,
-    BUBBLE_ATTACHED_SCORE: 1
+    BUBBLE_ATTACHED_SCORE: 1,
+
+    HELPER_POINTS: 10,
+    HELPER_POINTS_SPACING: 50,
   };
 
   this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
@@ -205,6 +208,18 @@ exports = Class(GC.Application, function () {
       width: 10,
       height: 10
     });*/
+    this.aimHelperPoints = [];
+    for(var i = 0; i<this.constants.HELPER_POINTS; i++){
+      this.aimHelperPoints.push(new ImageView({
+        superview: this.view,
+        layout: "box",
+        x: this.cannonPoint.x,
+        y: this.cannonPoint.y,
+        width: 10,
+        height: 10,
+        opacity: (1 - i*0.1)
+      }));
+    }
     
     this.bubbles = new Bubbles({ parent: this.view });
 
@@ -294,6 +309,7 @@ exports = Class(GC.Application, function () {
     this.bubbles.update(_dt);
 
     this.updateUIElements(_dt);
+    this.updateAimHelper(_dt);
 
     if(this.isShooting) {
       this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
@@ -484,6 +500,42 @@ exports = Class(GC.Application, function () {
     this.bullet.x = -999;
     this.bullet.vx = 0;
     this.resetBullet();
+  }
+
+  this.updateAimHelper = function() {
+    if(!this.aimPoint) {
+      for(var p = 0; p<this.constants.HELPER_POINTS; p++) {
+        const point = this.aimHelperPoints[p];
+        point.updateOpts({visible: false});
+      }
+      return;
+    }
+
+    var direction = new Vec2D(this.aimDirection);
+    var currentPoint = this.cannonPoint;
+    const padding = 5;
+    currentPoint = currentPoint.add(direction.multiply(80 + this.constants.HELPER_POINTS_SPACING));
+    for(var p = 0; p<this.constants.HELPER_POINTS; p++) {
+      const point = this.aimHelperPoints[p];
+
+      if(currentPoint.x < 0) {
+        currentPoint.x = padding;
+        direction.x *= -1;
+      } else if(currentPoint.x > this.constants.BASE_WIDTH) {
+        currentPoint.x = this.constants.BASE_WIDTH - padding - point.style.width;
+        direction.x *= -1;
+      }
+
+      point.updateOpts({
+        visible: true,
+        x: currentPoint.x - 3,
+        y: currentPoint.y, 
+        image: "resources/images/helpers/helper_" + this.currentBulletType + ".png"
+      });
+
+      currentPoint = currentPoint.add(direction.multiply(this.constants.HELPER_POINTS_SPACING));
+    }
+    //debugger;
   }
 
   this.startAim = function(point) {
