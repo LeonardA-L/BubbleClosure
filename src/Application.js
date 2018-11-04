@@ -10,6 +10,7 @@ import entities.Entity as Entity;
 import entities.EntityPool as EntityPool;
 import device;
 import effects;
+import animate;
 
 import math.geom.Vec2D as Vec2D;
 
@@ -369,7 +370,14 @@ exports = Class(GC.Application, function () {
 
     this.score += bubble.floating ? this.constants.BUBBLE_FLOATING_SCORE : this.constants.BUBBLE_ATTACHED_SCORE;
 
+    // Add explosion on the bubble
     effects.explode(bubble.view);
+    // Make the score pop out.
+    // I only managed to get a rather poor effect but the goal is to get the score moving
+    // to catch the eye and create a link between score and bubbles popping
+    animate(this.scoreView)
+      .now({scale: 2.5, x: this.scoreView.style.x / 3 }, 100)
+      .then({scale: 1.8, x: this.scoreView.style.x}, 100);
 
     bubble.release();
   }
