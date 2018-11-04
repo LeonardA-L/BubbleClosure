@@ -32,8 +32,9 @@ exports = Class(GC.Application, function () {
     BULLET_SCALE: 0.74,
     BULLET_Y_OFFSET: -8,
     BULLET_VELOCITY: 0.6,
-    GRID_WIDTH: 10, // in cols
-    GRID_HEIGHT: 8, // in rows
+    GRID_WIDTH: 3, // in cols 10
+    GRID_HEIGHT: 1, // in rows 8
+    GRID_DEFEAT_THRESHOLD: 14, // in rows 15
 
     BUBBLE_SCALE: 0.74,
     COLORS: {
@@ -63,16 +64,6 @@ exports = Class(GC.Application, function () {
     this.cannonAngle = 0;
     this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
     this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
-
-    this.onInputStart = (evt, point) => {
-      this.startAim(point);
-    };
-    this.onInputMove = (evt, point) => {
-      this.aim(point);
-    };
-    this.onInputSelect = (evt, point) => {
-      this.shoot(point);
-    };
 
     this.background = new ImageScaleView({
       superview: this,
@@ -201,8 +192,109 @@ exports = Class(GC.Application, function () {
     }
     //debugger;
 
+    this.eventReceiver = new View({
+      superview: this.view,
+      layout: "box",
+      x: 0,
+      y: 0,
+      width: this.constants.BASE_WIDTH,
+      height: this.constants.BASE_HEIGHT
+    });
+
+    this.eventReceiver.onInputStart = (evt, point) => {
+      this.enableInputs && this.startAim(point);
+    };
+    this.eventReceiver.onInputMove = (evt, point) => {
+      this.aim(point);
+    };
+    this.eventReceiver.onInputSelect = (evt, point) => {
+      this.shoot(point);
+    };
+
+    this.pauseScreen = new View({
+      superview: this.view,
+      layout: "box",
+      x: 0,
+      y: 0,
+      backgroundColor : '#FFFFFF99',
+      width: this.constants.BASE_WIDTH,
+      height: this.constants.BASE_HEIGHT,
+      zIndex: 50
+    });
+
+    this.startButton = new View({
+      superview: this.pauseScreen,
+      backgroundColor : '#0000AABB',
+      layout: "box",
+      centerX: true,
+      y: this.constants.BASE_HEIGHT * 0.55,
+      width: this.constants.BASE_WIDTH * 0.5,
+      height: 120
+    });
+    this.startButton.onInputStart = (evt, point) => {
+      this.startGame();
+    };
+
+    this.menuLogo = new View({
+      superview: this.pauseScreen,
+      backgroundColor : '#0000FF',
+      layout: "box",
+      centerX: true,
+      y: this.constants.BASE_HEIGHT * 0.2,
+      width: this.constants.BASE_WIDTH * 0.75,
+      height: 200
+    });
+
+    this.menuVictory = new View({
+      superview: this.pauseScreen,
+      backgroundColor : '#00FF00',
+      layout: "box",
+      centerX: true,
+      y: this.constants.BASE_HEIGHT * 0.2,
+      width: this.constants.BASE_WIDTH * 0.75,
+      height: 200
+    });
+
+    this.menuDefeat = new View({
+      superview: this.pauseScreen,
+      backgroundColor : '#FF0000',
+      layout: "box",
+      centerX: true,
+      y: this.constants.BASE_HEIGHT * 0.2,
+      width: this.constants.BASE_WIDTH * 0.75,
+      height: 200
+    });
+
+    this.openPauseScreen({
+      showLogo: true
+    });
+
+    //debugger;
     GC.app.view.style.scale = this.constants.SCALE;
   };
+
+  this.toggleInputs = function(_enable) {
+    this.enableInputs = _enable;
+  }
+
+  /*
+
+  */
+  this.openPauseScreen = function(_menuOpts) {
+    this.menuLogo.updateOpts({visible : !!_menuOpts.showLogo});
+    this.menuVictory.updateOpts({visible : !!_menuOpts.showVictory});
+    this.menuDefeat.updateOpts({visible : !!_menuOpts.showDefeat});
+
+    this.pauseScreen.updateOpts({visible : true});
+
+    this.toggleInputs(false);
+    //debugger;
+  }
+
+  this.startGame = function() {
+    this.toggleInputs(true);
+    this.pauseScreen.updateOpts({visible : false});
+  }
 
   this.resetBullet = function() {
     var cannonLength = this.aimDirection.multiply(this.constants.CANNON_TO_BASE_Y_OFFSET + this.constants.BULLET_Y_OFFSET);
@@ -237,10 +329,10 @@ exports = Class(GC.Application, function () {
   this.onBulletCollision = function(_bubble) {
     const bulletCenter = new Vec2D({x: this.bullet.x + this.constants.BULLET_SCALED_SIZE / 2, y: this.bullet.y + this.constants.BULLET_SCALED_SIZE / 2});
     
-    //this.x = ((this.row % 2) * app.constants.GRID_ITEM_WIDTH / 2) + this.col * app.constants.GRID_ITEM_WIDTH;
-    //this.y = this.row * app.constants.GRID_ITEM_HEIGHT;
     const row = Math.floor(bulletCenter.y / this.constants.GRID_ITEM_HEIGHT);
-    const col = Math.floor((bulletCenter.x - ((row % 2) * this.constants.GRID_ITEM_WIDTH / 2)) / this.constants.GRID_ITEM_WIDTH);
+    let col = Math.floor((bulletCenter.x - ((row % 2) * this.constants.GRID_ITEM_WIDTH / 2)) / this.constants.GRID_ITEM_WIDTH);
+    // Clamp column
+    col = Math.max(0, Math.min(this.constants.GRID_WIDTH - 1, col));
     var newBubble = this.insertInGrid(this.currentBulletType, col, row);
 
     this.triggerGridTest(newBubble);
@@ -251,8 +343,10 @@ exports = Class(GC.Application, function () {
   this.triggerGridTest = function(_bubble) {
     var toBeDeleted = this.grid.getCluster([_bubble], (b)=>b.type ===_bubble.type);
 
-    if(toBeDeleted.length < this.constants.MIN_BUBBLES_TO_POP)
+    if(toBeDeleted.length < this.constants.MIN_BUBBLES_TO_POP) {
+      this.checkDefeat(_bubble);
       return;
+    }
 
     for(var i = 0; i<toBeDeleted.length; i++) {
       toBeDeleted[i].toBeDeleted = true;
@@ -267,6 +361,29 @@ exports = Class(GC.Application, function () {
       bubbleToPop.active = false;
       bubbleToPop.release();
     }
+
+    this.checkVictory();
+  }
+
+  this.checkDefeat = function(_bubble) {
+    if(_bubble.row < this.constants.GRID_DEFEAT_THRESHOLD)
+      return;
+
+    // Trigger Defeat
+    this.openPauseScreen({
+      showDefeat: true
+    });
+  }
+
+  this.checkVictory = function() {
+    var activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
+    if(activeBubbles.length)
+      return;
+
+    // Trigger Victory
+    this.openPauseScreen({
+      showVictory: true
+    });
   }
 
   this.testBulletAgainstWalls = function() {
@@ -393,9 +510,9 @@ var Bubble = Class(Entity, function() {
     this.toBeDeleted = false;
     this.place();
 
-    this.view.onInputStart = (evt, point) => {
+    /*this.view.onInputStart = (evt, point) => {
       debugger;
-    };
+    };*/
     //debugger;
   }
 
