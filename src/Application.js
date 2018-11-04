@@ -36,7 +36,7 @@ exports = Class(GC.Application, function () {
     BULLET_VELOCITY: 0.6,
     GRID_WIDTH: 10, // in cols 10
     GRID_HEIGHT: 8, // in rows 8
-    GRID_DEFEAT_THRESHOLD: 14, // in rows 15
+    GRID_DEFEAT_THRESHOLD: 14, // in rows 14
 
     BUBBLE_SCALE: 0.74,
     COLORS: {
@@ -261,6 +261,8 @@ exports = Class(GC.Application, function () {
       showLogo: true,
       showPlay: true
     });
+
+    debugger;
 
     //debugger;
     GC.app.view.style.scale = this.constants.SCALE;
