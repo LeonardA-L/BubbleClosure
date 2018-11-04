@@ -9,6 +9,7 @@ import src.Menu as Menu;
 import entities.Entity as Entity;
 import entities.EntityPool as EntityPool;
 import device;
+import effects;
 
 import math.geom.Vec2D as Vec2D;
 
@@ -33,7 +34,7 @@ exports = Class(GC.Application, function () {
     BUBBLE_SIZE: 80,
     BULLET_SCALE: 0.74,
     BULLET_Y_OFFSET: -8,
-    BULLET_VELOCITY: 0.6,
+    BULLET_VELOCITY: 0.65,
     GRID_WIDTH: 10, // in cols 10
     GRID_HEIGHT: 8, // in rows 8
     GRID_DEFEAT_THRESHOLD: 14, // in rows 14
@@ -53,7 +54,7 @@ exports = Class(GC.Application, function () {
     MIN_BUBBLES_TO_POP: 3,
     POP_FREQUENCY: 2, // in frames
 
-    DEBOUNCE_UI_UPDATE: 3,
+    DEBOUNCE_UI_UPDATE: 4,
 
     BUBBLE_FLOATING_SCORE: 2,
     BUBBLE_ATTACHED_SCORE: 1,
@@ -262,8 +263,6 @@ exports = Class(GC.Application, function () {
       showPlay: true
     });
 
-    debugger;
-
     //debugger;
     GC.app.view.style.scale = this.constants.SCALE;
   };
@@ -359,6 +358,8 @@ exports = Class(GC.Application, function () {
     bubble.active = false;
 
     this.score += bubble.floating ? this.constants.BUBBLE_FLOATING_SCORE : this.constants.BUBBLE_ATTACHED_SCORE;
+
+    effects.explode(bubble.view);
 
     bubble.release();
   }

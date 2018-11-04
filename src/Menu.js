@@ -32,14 +32,17 @@ exports = Class(View, function() {
 	    	_restartFn.call(_ctx);
 	    };
 
-	    this.menuLogo = new View({
+	    this.menuLogo = new ImageView({
 	      superview: this,
-	      backgroundColor : '#0000FF',
+     	  image: "resources/images/ui/Logo.png",
 	      layout: "box",
 	      centerX: true,
-	      y: this.style.height * 0.2,
+	      y: this.style.height * 0.1,
 	      width: this.style.width * 0.75,
-	      height: 200
+	      width: 600,
+	      height: 300,
+	      scale: 0.9,
+	      r: - Math.PI / 24
 	    });
 
 	    this.menuVictory = new ImageView({
