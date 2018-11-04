@@ -42,4 +42,30 @@ exports = Class(Object, function() {
 		  return _el != undefined;
 		});
 	}
+
+	this.getCluster = function(_startPoints, _testFn) {
+		var testFn = _testFn || ((e) => true);
+
+		var neighbours = [..._startPoints];
+	    var inspected = {};
+	    //inspected[_bubble.row + '-' + _bubble.col] = true;
+	    var cluster = [];
+
+	    while(neighbours.length) {
+	      var neighbour = neighbours.pop();
+	      if(!testFn || testFn(neighbour))
+	      {
+	        cluster.push(neighbour);
+	        var childNeighbours = this.neighbours(neighbour.col, neighbour.row);
+	        for(var i = 0; i < childNeighbours.length; i++) {
+	          if(!inspected[childNeighbours[i].row + '-' + childNeighbours[i].col]) {
+	            neighbours.push(childNeighbours[i]);
+	          }
+	        }
+	      }
+	      inspected[neighbour.row + '-' + neighbour.col] = true;
+	    }
+	    cluster = [...new Set(cluster)];
+	    return cluster;
+	}
 });

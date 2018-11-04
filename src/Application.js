@@ -199,7 +199,7 @@ exports = Class(GC.Application, function () {
         this.insertInGrid(Tools.randomProperty(this.constants.COLORS), j, i);
       }
     }
-    debugger;
+    //debugger;
 
     GC.app.view.style.scale = this.constants.SCALE;
   };
@@ -249,33 +249,23 @@ exports = Class(GC.Application, function () {
   }
 
   this.triggerGridTest = function(_bubble) {
-    var neighbours = this.grid.neighbours(_bubble.col, _bubble.row);
-    var inspected = {};
-    inspected[_bubble.row + '-' + _bubble.col] = true;
-    var cluster = [_bubble];
+    var toBeDeleted = this.grid.getCluster([_bubble], (b)=>b.type ===_bubble.type);
 
-    while(neighbours.length) {
-      var neighbour = neighbours.pop();
-      if(neighbour.type === _bubble.type)
-      {
-        cluster.push(neighbour);
-        var childNeighbours = this.grid.neighbours(neighbour.col, neighbour.row);
-        for(var i = 0; i < childNeighbours.length; i++) {
-          if(!inspected[childNeighbours[i].row + '-' + childNeighbours[i].col]) {
-            neighbours.push(childNeighbours[i]);
-          }
-        }
-      }
-      inspected[neighbour.row + '-' + neighbour.col] = true;
+    if(toBeDeleted.length < this.constants.MIN_BUBBLES_TO_POP)
+      return;
+
+    for(var i = 0; i<toBeDeleted.length; i++) {
+      toBeDeleted[i].toBeDeleted = true;
     }
-    cluster = [...new Set(cluster)];
 
-    if(cluster.length >= this.constants.MIN_BUBBLES_TO_POP) {
-      while(cluster.length) {
-        const bubbleToPop = cluster.pop();
-        this.grid.unregister(bubbleToPop.col, bubbleToPop.row);
-        bubbleToPop.release();
-      }
+    toBeDeleted.push(...this.findFloatingBubbles());
+
+    while(toBeDeleted.length) {
+      const bubbleToPop = toBeDeleted.pop();
+      this.grid.unregister(bubbleToPop.col, bubbleToPop.row);
+      bubbleToPop.toBeDeleted = true;
+      bubbleToPop.active = false;
+      bubbleToPop.release();
     }
   }
 
@@ -297,6 +287,25 @@ exports = Class(GC.Application, function () {
       
       this.bullet.vx *= -1;
     }
+  }
+
+  Array.prototype.diff = function(a) {
+    return this.filter(function(i) {return a.indexOf(i) < 0;});
+};
+
+  this.findFloatingBubbles = function() {
+    // Find top row
+    var topRow = [];
+    for(var i=0;i<this.constants.GRID_WIDTH; i++) {
+      const bubble = this.grid.get(i, 0);
+      bubble && topRow.push(bubble);
+    }
+    // Find all attached bubbles
+    var attachedCluster = this.grid.getCluster(topRow, (b)=>!b.toBeDeleted); // By not specifying a type we get all types
+    var activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
+    var floating = activeBubbles.diff(attachedCluster);
+    //debugger;
+    return floating;
   }
 
   this.discardBullet = function() {
@@ -365,6 +374,7 @@ var Bubble = Class(Entity, function() {
   this.col = 0;
   this.row = 0;
   this.type = undefined;
+  this.toBeDeleted = false;
 
   this.place = function() {
     this.x = ((this.row % 2) * app.constants.GRID_ITEM_WIDTH / 2) + this.col * app.constants.GRID_ITEM_WIDTH;
@@ -380,7 +390,12 @@ var Bubble = Class(Entity, function() {
     this.view.updateOpts(_opts);
     this.hitBounds.r = app.constants.BUBBLE_SCALED_SIZE / 2;
     this.isCircle = true;
+    this.toBeDeleted = false;
     this.place();
+
+    this.view.onInputStart = (evt, point) => {
+      debugger;
+    };
     //debugger;
   }
 
