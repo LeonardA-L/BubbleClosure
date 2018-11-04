@@ -61,6 +61,16 @@ exports = Class(GC.Application, function () {
 
     HELPER_POINTS: 10,
     HELPER_POINTS_SPACING: 50,
+
+    CANNON_SMOKE_OPTS: {
+      blend: false,
+      speed: 0.7,
+      images: [
+        "resources/images/particles/particleSmoke3_bw.png",
+        "resources/images/particles/particleSmoke4_bw.png",
+        "resources/images/particles/particleSmoke5_bw.png",
+      ]
+    }
   };
 
   this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
@@ -574,6 +584,9 @@ exports = Class(GC.Application, function () {
     this.isDiscarding = this.cannonAngle > this.constants.HALF_PI || this.cannonAngle < - this.constants.HALF_PI;
     this.bullet.vx = this.constants.BULLET_VELOCITY * this.aimDirection.x;
     this.bullet.vy = this.constants.BULLET_VELOCITY * this.aimDirection.y;
+
+    effects.explode(this.bullet, this.constants.CANNON_SMOKE_OPTS);
+
     //debugger;
     delete this.aimPoint;
   }
