@@ -331,6 +331,14 @@ exports = Class(GC.Application, function () {
     }
   }
 
+  this.updateAvailableColors = function() {
+    this.availableColors = {};
+    var activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
+    activeBubbles.forEach((b)=>{
+      this.availableColors[b.type] = b.type;
+    });
+  }
+
   this.insertInGrid = function(_type, _col, _row) {
     const bb = this.bubbles.obtain(_type, _col, _row, {});
     this.grid.register(bb, _col, _row);
@@ -347,6 +355,8 @@ exports = Class(GC.Application, function () {
     var newBubble = this.insertInGrid(this.currentBulletType, col, row);
 
     this.triggerGridTest(newBubble);
+
+    this.updateAvailableColors();
 
     this.discardBullet();
   }
@@ -446,7 +456,7 @@ exports = Class(GC.Application, function () {
     this.bullet.view.updateOpts({
       image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png",
     });
-    this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.nextBulletType = Tools.randomProperty(this.availableColors);
     this.nextBullet.updateOpts({
       image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png",
     });
@@ -499,8 +509,19 @@ exports = Class(GC.Application, function () {
   this.generateGame = function() {
     this.bubbles.releaseAll();
 
-    this.currentBulletType = Tools.randomProperty(this.constants.COLORS);
-    this.nextBulletType = Tools.randomProperty(this.constants.COLORS);
+    this.grid && delete this.grid;
+    this.grid = new HexGrid();
+
+    for(var i=0;i<this.constants.GRID_HEIGHT;i++){
+      for(var j=0;j<this.constants.GRID_WIDTH - i%2;j++){
+        this.insertInGrid(Tools.randomProperty(this.constants.COLORS), j, i);
+      }
+    }
+
+    this.updateAvailableColors();
+
+    this.currentBulletType = Tools.randomProperty(this.availableColors);
+    this.nextBulletType = Tools.randomProperty(this.availableColors);
 
     this.nextBullet.updateOpts({
       image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png"
@@ -511,15 +532,6 @@ exports = Class(GC.Application, function () {
     });
     this.bullet.bubbleType = this.currentBulletType;
     this.resetBullet();
-
-    this.grid && delete this.grid;
-    this.grid = new HexGrid();
-
-    for(var i=0;i<this.constants.GRID_HEIGHT;i++){
-      for(var j=0;j<this.constants.GRID_WIDTH - i%2;j++){
-        this.insertInGrid(Tools.randomProperty(this.constants.COLORS), j, i);
-      }
-    }
   }
 
 });
