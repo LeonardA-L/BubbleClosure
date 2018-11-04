@@ -2,6 +2,7 @@ import ui.TextView as TextView;
 import ui.View as View;
 import ui.ImageView as ImageView;
 import ui.ImageScaleView as ImageScaleView;
+import ui.ScoreView as ScoreView;
 import src.Tools as Tools;
 import src.HexGrid as HexGrid;
 import src.Menu as Menu;
@@ -51,6 +52,11 @@ exports = Class(GC.Application, function () {
 
     MIN_BUBBLES_TO_POP: 3,
     POP_FREQUENCY: 2, // in frames
+
+    DEBOUNCE_UI_UPDATE: 3,
+
+    BUBBLE_FLOATING_SCORE: 2,
+    BUBBLE_ATTACHED_SCORE: 1
   };
 
   this.constants.GRID_ITEM_WIDTH = this.constants.BUBBLE_SIZE * this.constants.BUBBLE_SCALE * 0.97;
@@ -86,6 +92,29 @@ exports = Class(GC.Application, function () {
       width: this.view.style.width,
       height: 500
     });*/
+
+    this.scoreView = new ScoreView({
+      parent: this.view,
+      width: 96,
+      height: 33,
+      text: "",
+      horizontalAlign: "center",
+      spacing: 0,
+      characterData: {
+        "0": { image: "resources/images/scoreDigits/score_0.png" },
+        "1": { image: "resources/images/scoreDigits/score_1.png" },
+        "2": { image: "resources/images/scoreDigits/score_2.png" },
+        "3": { image: "resources/images/scoreDigits/score_3.png" },
+        "4": { image: "resources/images/scoreDigits/score_4.png" },
+        "5": { image: "resources/images/scoreDigits/score_5.png" },
+        "6": { image: "resources/images/scoreDigits/score_6.png" },
+        "7": { image: "resources/images/scoreDigits/score_7.png" },
+        "8": { image: "resources/images/scoreDigits/score_8.png" },
+        "9": { image: "resources/images/scoreDigits/score_9.png" }
+      },
+
+      zIndex: 60
+    });
 
     [cannonBaseW, cannonBaseH] = [244,145];
 
@@ -232,11 +261,13 @@ exports = Class(GC.Application, function () {
   this.openPauseScreen = function(_menuOpts) {
     this.menu.open(_menuOpts);
     this.toggleInputs(false);
+    this.scoreViewMode(true);
   }
 
   this.startGame = function() {
     this.menu.close();
     this.toggleInputs(true);
+    this.scoreViewMode(false);
   }
 
   this.reStartGame = function() {
@@ -262,6 +293,8 @@ exports = Class(GC.Application, function () {
     this.bullet.update(_dt);
     this.bubbles.update(_dt);
 
+    this.updateUIElements(_dt);
+
     if(this.isShooting) {
       this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
       this.testBulletAgainstWalls();
@@ -269,6 +302,32 @@ exports = Class(GC.Application, function () {
 
     this.popBubbles();
     this.frame ++;
+  }
+
+  this.updateUIElements = function(_dt) {
+    if(this.frame % this.constants.DEBOUNCE_UI_UPDATE !== 0)
+      return;
+
+    this.scoreView.setText('' + (this.score > 0 ? this.score : ''));
+  }
+
+  this.scoreViewMode = function(_isInMenu) {
+    if(_isInMenu) {
+      this.scoreView.updateOpts({
+        x: (this.constants.BASE_WIDTH - 96 * 3) / 2,
+        y: this.constants.BASE_HEIGHT - 160,
+        r: 0,
+        scale: 3,
+      });
+    } else {
+      this.scoreView.updateOpts({
+        x: 40,
+        centerX: false,
+        y: this.constants.BASE_HEIGHT - 160,
+        r: - Math.PI / 12, // Rotation sense is not direct?
+        scale: 1.8,
+      });
+    }
   }
 
   this.popBubbles = function() {
@@ -280,6 +339,9 @@ exports = Class(GC.Application, function () {
 
     const bubble = this.bubblesToDelete.pop();
     bubble.active = false;
+
+    this.score += bubble.floating ? this.constants.BUBBLE_FLOATING_SCORE : this.constants.BUBBLE_ATTACHED_SCORE;
+
     bubble.release();
   }
 
@@ -303,7 +365,7 @@ exports = Class(GC.Application, function () {
     const row = Math.floor(bulletCenter.y / this.constants.GRID_ITEM_HEIGHT);
     let col = Math.floor((bulletCenter.x - ((row % 2) * this.constants.GRID_ITEM_WIDTH / 2)) / this.constants.GRID_ITEM_WIDTH);
     // Clamp column
-    col = Math.max(0, Math.min(this.constants.GRID_WIDTH - 1, col));
+    col = Math.max(0, Math.min(this.constants.GRID_WIDTH - (row % 2 ? 2 : 1), col));
     var newBubble = this.insertInGrid(this.currentBulletType, col, row);
 
     this.triggerGridTest(newBubble);
@@ -397,6 +459,10 @@ exports = Class(GC.Application, function () {
     var attachedCluster = this.grid.getCluster(topRow, (b)=>!b.toBeDeleted); // By not specifying a type we get all types
     var activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
     var floating = activeBubbles.diff(attachedCluster);
+
+    floating.forEach(b=>{
+      b.floating = true;
+    });
     //debugger;
     return floating;
   }
@@ -410,6 +476,8 @@ exports = Class(GC.Application, function () {
       image: "resources/images/bubbles/ball_" + this.currentBulletType + ".png",
     });
     this.nextBulletType = Tools.randomProperty(this.availableColors);
+    if(!this.nextBulletType)
+      this.nextBulletType = this.constants.COLORS.BLUE; // Should only happen if the game is over
     this.nextBullet.updateOpts({
       image: "resources/images/bubbles/ball_" + this.nextBulletType + ".png",
     });
@@ -461,6 +529,8 @@ exports = Class(GC.Application, function () {
 
   this.generateGame = function() {
     this.frame = 0;
+    this.score = 0;
+
     this.bubbles.releaseAll();
     this.bubblesToDelete = [];
 
@@ -498,6 +568,7 @@ var Bubble = Class(Entity, function() {
   this.row = 0;
   this.type = undefined;
   this.toBeDeleted = false;
+  this.floating = false;
 
   this.place = function() {
     this.x = ((this.row % 2) * app.constants.GRID_ITEM_WIDTH / 2) + this.col * app.constants.GRID_ITEM_WIDTH;
@@ -514,6 +585,7 @@ var Bubble = Class(Entity, function() {
     this.hitBounds.r = app.constants.BUBBLE_SCALED_SIZE / 2;
     this.isCircle = true;
     this.toBeDeleted = false;
+    this.floating = false;
     this.place();
 
     /*this.view.onInputStart = (evt, point) => {
