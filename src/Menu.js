@@ -6,7 +6,6 @@ exports = Class(View, function() {
   this.populate = function(_playFn, _restartFn, _ctx) {
     this.startButton = new ImageView({
       superview: this,
-      //backgroundColor : '#0000AABB',
        image: 'resources/images/ui/Play_btn.png',
       layout: 'box',
       centerX: true,
@@ -20,7 +19,6 @@ exports = Class(View, function() {
 
     this.restartButton = new ImageView({
       superview: this,
-      //backgroundColor : '#AA00AABB',
        image: 'resources/images/ui/Play_btn.png',
       layout: 'box',
       centerX: true,
@@ -67,6 +65,15 @@ exports = Class(View, function() {
     });
   };
 
+  /**
+  * Opens the menu
+  * Available options:
+  * showLogo: show the splashscreen logo
+  * showVictory: show the victory endscreen image
+  * showDefeat: show the defeat endscreen image
+  * showPlay: show play button
+  * showReplay: show replay button
+  */
   this.open = function(_menuOpts) {
     this.menuLogo.updateOpts({visible : !!_menuOpts.showLogo});
     this.menuVictory.updateOpts({visible : !!_menuOpts.showVictory});

@@ -743,6 +743,13 @@ exports = Class(GC.Application, function () {
 
 });
 
+
+//---------------------------
+//
+//   The following classes should be in separate files. However to save time I left them here
+//
+//---------------------------
+
 /**
  * Class reprenting a bubble in the hex grid. This is entity is going to be pooled.
  * @see Bubbles
