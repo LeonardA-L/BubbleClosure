@@ -8,7 +8,7 @@
   "shortName": "BubbleClosure",
   "studio": {
     "domain": "studio.example.com",
-    "name": "Leonard Alone",
+    "name": "Leonard Alone"
   },
   "supportedOrientations": [
     "portrait",
@@ -17,5 +17,5 @@
   "title": "BubbleClosure",
   "supportedOrientations": [
       "portrait"
-  ],
+  ]
 }
