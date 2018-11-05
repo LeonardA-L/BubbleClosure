@@ -1,0 +1,21 @@
+{
+  "appID": "7076e2d57a024ac88da39488ac17c825",
+  "dependencies": {
+    "devkit-core": "https://github.com/gameclosure/devkit-core#v4.5.4",
+    "devkit-effects": "https://github.com/gameclosure/devkit-effects.git#v1.0.3",
+    "devkit-entities": "https://github.com/gameclosure/devkit-entities#v0.2.4"
+  },
+  "shortName": "BubbleClosure",
+  "studio": {
+    "domain": "studio.example.com",
+    "name": "Leonard Alone",
+  },
+  "supportedOrientations": [
+    "portrait",
+    "landscape"
+  ],
+  "title": "BubbleClosure",
+  "supportedOrientations": [
+      "portrait"
+  ],
+}
