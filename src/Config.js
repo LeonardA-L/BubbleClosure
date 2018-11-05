@@ -7,7 +7,7 @@ exports = {
   BULLET_Y_OFFSET: -8,
   BULLET_VELOCITY: 0.65,
   GRID_WIDTH: 10, // in cols 10
-  GRID_HEIGHT: 8, // in rows 8
+  GRID_HEIGHT: 9, // in rows 8
   GRID_DEFEAT_THRESHOLD: 14, // in rows 14
 
   BUBBLE_SCALE: 0.74,
@@ -31,8 +31,8 @@ exports = {
   BUBBLE_FLOATING_SCORE: 2,
   BUBBLE_ATTACHED_SCORE: 1,
 
-  HELPER_POINTS: 10,
-  HELPER_POINTS_SPACING: 50,
+  HELPER_POINTS: 20,
+  HELPER_POINTS_SPACING: 25,
 
   CANNON_SMOKE_OPTS: {
     blend: false,
@@ -66,5 +66,5 @@ exports = {
     zIndex: 60
   },
 
-  SCORE_HELPER_TIMER_MAX: 700
+  SCORE_HELPER_TIMER_MAX: 500 // Warning: this will be multiplied by DEBOUNCE_BUBBLE_UPDATE
 }
