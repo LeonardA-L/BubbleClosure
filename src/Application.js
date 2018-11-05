@@ -15,12 +15,12 @@ import animate;
 
 import math.geom.Vec2D as Vec2D;
 
-var boundsWidth = 576;
-var boundsHeight = 1024;
+const boundsWidth = 576;
+const boundsHeight = 1024;
 
-var baseWidth = boundsWidth; //576
-var baseHeight =  device.screen.height * (boundsWidth / device.screen.width); //864
-var scale = device.screen.width / baseWidth; //1
+const baseWidth = boundsWidth; //576
+const baseHeight =  device.screen.height * (boundsWidth / device.screen.width); //864
+const scale = device.screen.width / baseWidth; //1
 
 exports = Class(GC.Application, function () {
   config.BOUNDS_WIDTH = boundsWidth;
@@ -205,6 +205,10 @@ exports = Class(GC.Application, function () {
     GC.app.view.style.scale = config.SCALE;
   };
 
+  this.launchUI = function () {
+
+  };
+
   this.toggleInputs = function(_enable) {
     this.enableInputs = _enable;
   };
@@ -212,13 +216,13 @@ exports = Class(GC.Application, function () {
   this.openPauseScreen = function(_menuOpts) {
     this.menu.open(_menuOpts);
     this.toggleInputs(false);
-    this.scoreViewMode(true);
+    this.setScoreViewMode(true);
   };
 
   this.startGame = function() {
     this.menu.close();
     this.toggleInputs(true);
-    this.scoreViewMode(false);
+    this.setScoreViewMode(false);
   };
 
   this.reStartGame = function() {
@@ -234,10 +238,6 @@ exports = Class(GC.Application, function () {
     this.bullet.vx = 0;
     this.bullet.vy = 0;
     this.bullet.view.style.visible = true;
-  };
-
-  this.launchUI = function () {
-
   };
 
   this.tick = function(_dt) {
@@ -265,7 +265,7 @@ exports = Class(GC.Application, function () {
     this.scoreView.setText('' + (this.score > 0 ? this.score : ''));
   };
 
-  this.scoreViewMode = function(_isInMenu) {
+  this.setScoreViewMode = function(_isInMenu) {
     // All of this is purely cosmetic and should be moved to a config file
     if(_isInMenu) {
       this.scoreView.updateOpts({
@@ -502,6 +502,9 @@ exports = Class(GC.Application, function () {
     if(!this.isShooting && !this.bubblesToDelete.length) {
       this.resetBullet();
     }
+
+    for(var i in this)
+      typeof this[i] == 'function' && console.log(i);
   };
 
   this.shoot = function(point) {
