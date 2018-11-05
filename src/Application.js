@@ -9,6 +9,7 @@ import src.Menu as Menu;
 import src.Config as config;
 import entities.Entity as Entity;
 import entities.EntityPool as EntityPool;
+import ui.resource.Image as Image;
 import device;
 import effects;
 import animate;
@@ -35,6 +36,14 @@ exports = Class(GC.Application, function () {
   config.NEXT_BULLET_SCALED_SIZE = config.BUBBLE_SIZE * config.NEXT_BULLET_SCALE;
 
   this.initUI = function () {
+    this.bubbleResources = {};
+    for(var i in config.COLORS) {
+      if(config.COLORS.hasOwnProperty(i)) {
+        const color = config.COLORS[i];
+        this.bubbleResources[color] = new Image({url: 'resources/images/bubbles/ball_' + color + '.png'});
+      }
+    }
+
     this.aimDirection = new Vec2D({x:0, y:-1});
     this.cannonAngle = 0;
 
@@ -60,7 +69,7 @@ exports = Class(GC.Application, function () {
       height: 500
     });*/
 
-    this.scoreView = new ScoreView({parent: this.view, ...config.SCORE_VIEW_CONFIG});
+    this.scoreView = new ScoreView(Object.assign({parent: this.view}, config.SCORE_VIEW_CONFIG));
 
     [cannonBaseW, cannonBaseH] = [244,145];
 
@@ -114,7 +123,7 @@ exports = Class(GC.Application, function () {
       layout: 'box',
     });
 
-    var cannonPosition = this.cannonRoot.getPosition();
+    const cannonPosition = this.cannonRoot.getPosition();
     this.cannonPoint = new Vec2D({ x: cannonPosition.x, y: cannonPosition.y });
 
     this.gridRoot = new View({
@@ -149,7 +158,7 @@ exports = Class(GC.Application, function () {
     });*/
 
     this.aimHelperPoints = [];
-    for(var i = 0; i<config.HELPER_POINTS; i++){
+    for(let i = 0; i<config.HELPER_POINTS; i++){
       this.aimHelperPoints.push(new ImageView({
         superview: this.view,
         layout: 'box',
@@ -231,7 +240,7 @@ exports = Class(GC.Application, function () {
   };
 
   this.resetBullet = function() {
-    var cannonLength = this.aimDirection.multiply(config.CANNON_TO_BASE_Y_OFFSET + config.BULLET_Y_OFFSET);
+    const cannonLength = this.aimDirection.multiply(config.CANNON_TO_BASE_Y_OFFSET + config.BULLET_Y_OFFSET);
     this.bullet.x = this.cannonPoint.x + cannonLength.x - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
     this.bullet.y = this.cannonPoint.y + cannonLength.y - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
     this.bullet.active = true;
@@ -250,8 +259,9 @@ exports = Class(GC.Application, function () {
     this.updateAimHelper(_dt);
 
     if(this.isShooting) {
-      this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
-      this.testBulletAgainstWalls();
+      if(!this.testBulletAgainstWalls()) {
+        this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
+      }
     }
 
     this.popBubbles();
@@ -311,26 +321,26 @@ exports = Class(GC.Application, function () {
 
   this.updateAvailableColors = function() {
     this.availableColors = {};
-    var activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
+    const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
     activeBubbles.forEach((b)=>{
       this.availableColors[b.type] = b.type;
     });
   };
 
   this.insertInGrid = function(_type, _col, _row) {
-    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view});
+    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view, image: this.bubbleResources[_type]});
     this.grid.register(bb, _col, _row);
     return bb;
   };
 
   this.onBulletCollision = function(_bubble) {
-    const bulletCenter = new Vec2D({x: this.bullet.x + config.BULLET_SCALED_SIZE / 2, y: this.bullet.y + config.BULLET_SCALED_SIZE / 2});
+    const bulletCenter = new Vec2D({x: this.bullet.x + config.BULLET_SCALED_SIZE / 3, y: this.bullet.y + config.BULLET_SCALED_SIZE / 3});
     
     const row = Math.floor(bulletCenter.y / config.GRID_ITEM_HEIGHT);
     let col = Math.floor((bulletCenter.x - ((row % 2) * config.GRID_ITEM_WIDTH / 2)) / config.GRID_ITEM_WIDTH);
     // Clamp column
     col = Math.max(0, Math.min(config.GRID_WIDTH - (row % 2 ? 2 : 1), col));
-    var newBubble = this.insertInGrid(this.currentBulletType, col, row);
+    const newBubble = this.insertInGrid(this.currentBulletType, col, row);
 
     this.triggerGridTest(newBubble);
 
@@ -340,14 +350,14 @@ exports = Class(GC.Application, function () {
   };
 
   this.triggerGridTest = function(_bubble) {
-    var toBeDeleted = this.grid.getCluster([_bubble], (b)=>b.type ===_bubble.type);
+    let toBeDeleted = this.grid.getCluster([_bubble], (b)=>b.type ===_bubble.type);
 
     if(toBeDeleted.length < config.MIN_BUBBLES_TO_POP) {
       this.checkDefeat(_bubble);
       return;
     }
 
-    for(var i = 0; i<toBeDeleted.length; i++) {
+    for(let i = 0; i<toBeDeleted.length; i++) {
       toBeDeleted[i].toBeDeleted = true;
     }
 
@@ -376,7 +386,7 @@ exports = Class(GC.Application, function () {
   };
 
   this.checkVictory = function() {
-    var activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
+    const activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
     if(activeBubbles.length)
       return;
 
@@ -392,6 +402,7 @@ exports = Class(GC.Application, function () {
     const bulletScaledSize = config.BULLET_SCALE * config.BUBBLE_SIZE;
     if(this.bullet.y <= 0 || this.bullet.y >= config.BASE_HEIGHT - bulletScaledSize) {
       this.discardBullet();
+      return true;
       //debugger;
     }
 
@@ -400,7 +411,7 @@ exports = Class(GC.Application, function () {
     || this.bullet.x >= config.BASE_WIDTH - bulletScaledSize  && this.bullet.vx > 0) {
       if(this.isDiscarding) { // Exception: when you shoot below the horizon
         this.discardBullet();
-        return;
+        return true;
       }
       
       this.bullet.vx *= -1;
@@ -409,15 +420,15 @@ exports = Class(GC.Application, function () {
 
   this.findFloatingBubbles = function() {
     // Find top row
-    var topRow = [];
-    for(var i=0;i<config.GRID_WIDTH; i++) {
+    let topRow = [];
+    for(let i=0;i<config.GRID_WIDTH; i++) {
       const bubble = this.grid.get(i, 0);
       bubble && topRow.push(bubble);
     }
     // Find all attached bubbles
-    var attachedCluster = this.grid.getCluster(topRow, b => !b.toBeDeleted); // By not specifying a type we get all types
-    var activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
-    var floating = activeBubbles.diff(attachedCluster);
+    const attachedCluster = this.grid.getCluster(topRow, b => !b.toBeDeleted); // By not specifying a type we get all types
+    const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
+    const floating = activeBubbles.diff(attachedCluster);
 
     floating.forEach(b=>{
       b.floating = true;
@@ -431,13 +442,13 @@ exports = Class(GC.Application, function () {
     this.bullet.view.style.visible = false;
     this.currentBulletType = this.nextBulletType;
     this.bullet.view.updateOpts({
-      image: 'resources/images/bubbles/ball_' + this.currentBulletType + '.png',
+      image: this.bubbleResources[this.currentBulletType]
     });
     this.nextBulletType = Tools.randomProperty(this.availableColors);
     if(!this.nextBulletType)
       this.nextBulletType = config.COLORS.BLUE; // Cosmetic: Should only happen if the game is over
     this.nextBullet.updateOpts({
-      image: 'resources/images/bubbles/ball_' + this.nextBulletType + '.png',
+      image: this.bubbleResources[this.nextBulletType]
     });
     this.bullet.x = -999;
     this.bullet.vx = 0;
@@ -446,18 +457,18 @@ exports = Class(GC.Application, function () {
 
   this.updateAimHelper = function() {
     if(!this.aimPoint) {
-      for(var p = 0; p<config.HELPER_POINTS; p++) {
+      for(let p = 0; p<config.HELPER_POINTS; p++) {
         const point = this.aimHelperPoints[p];
         point.updateOpts({ visible: false });
       }
       return;
     }
 
-    var direction = new Vec2D(this.aimDirection);
-    var currentPoint = this.cannonPoint;
+    let direction = new Vec2D(this.aimDirection);
+    let currentPoint = this.cannonPoint;
     const padding = 5;
     currentPoint = currentPoint.add(direction.multiply(80 + config.HELPER_POINTS_SPACING));
-    for(var p = 0; p<config.HELPER_POINTS; p++) {
+    for(let p = 0; p<config.HELPER_POINTS; p++) {
       const point = this.aimHelperPoints[p];
 
       if(currentPoint.x < 0) {
@@ -502,9 +513,6 @@ exports = Class(GC.Application, function () {
     if(!this.isShooting && !this.bubblesToDelete.length) {
       this.resetBullet();
     }
-
-    for(var i in this)
-      typeof this[i] == 'function' && console.log(i);
   };
 
   this.shoot = function(point) {
@@ -546,19 +554,19 @@ exports = Class(GC.Application, function () {
     this.nextBulletType = Tools.randomProperty(this.availableColors);
 
     this.nextBullet.updateOpts({
-      image: 'resources/images/bubbles/ball_' + this.nextBulletType + '.png'
+      image: this.bubbleResources[this.nextBulletType]
     });
 
     this.bullet.view.updateOpts({
-      image: 'resources/images/bubbles/ball_' + this.currentBulletType + '.png'
+      image: this.bubbleResources[this.currentBulletType]
     });
     this.bullet.bubbleType = this.currentBulletType;
     this.resetBullet();
   };
 
   this.generateMap = function() {
-    for(var i=0;i<config.GRID_HEIGHT;i++){
-      for(var j=0;j<config.GRID_WIDTH - i%2;j++){
+    for(let i=0;i<config.GRID_HEIGHT;i++){
+      for(let j=0;j<config.GRID_WIDTH - i%2;j++){
         this.insertInGrid(Tools.randomProperty(config.COLORS), j, i);
       }
     }
@@ -605,8 +613,7 @@ var Bubbles = Class(EntityPool, function() {
   };
 
   this.obtain = function(_type, _col, _row, _opts) {
-    var opts = Object.assign({
-      image: 'resources/images/bubbles/ball_' + _type + '.png',
+    const opts = Object.assign({
       layout: 'box',
       width: config.BUBBLE_SIZE * config.BUBBLE_SCALE,
       height: config.BUBBLE_SIZE * config.BUBBLE_SCALE,
