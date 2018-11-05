@@ -129,6 +129,7 @@ exports = Class(GC.Application, function () {
       width: config.BUBBLE_SIZE,
       height: config.BUBBLE_SIZE,
       scale: config.BULLET_SCALE,
+      zIndex: 8
     });
     this.bullet.hitBounds.r = config.BULLET_SCALED_SIZE / 2;
     this.bullet.isCircle = true;
@@ -235,67 +236,11 @@ exports = Class(GC.Application, function () {
 
   };
 
-  /**
-   * Allows enabling/disabling player input, for instance when pausing the game.
-   * @arg {boolean} [_enable]
-   */
-  this.toggleInputs = function(_enable) {
-    this.enableInputs = _enable;
-  };
-
-  /**
-   * Opens the menu screen and pauses the game.
-   * @arg {object} [_menuOpts]
-   * @see Menu#open for all available options
-   */
-  this.openPauseScreen = function(_menuOpts) {
-    this.menu.open(_menuOpts);
-    this.toggleInputs(false);
-    this.setScoreViewMode(true);
-  };
-
-  /**
-   * Removes menu screen and starts the game
-   */
-  this.startGame = function() {
-    this.menu.close();
-    this.toggleInputs(true);
-    this.setScoreViewMode(false);
-  };
-
-  /**
-   * Generates a new game wiping the current one, and start the game
-   * @see Application#generateGame
-   */
-  this.reStartGame = function() {
-    this.generateGame();
-    this.startGame();
-  };
-
-  /**
-   * Places the bullet back at the top of the cannon and sets its properties
-   */
-  this.resetBullet = function() {
-    // Reset properties
-    const cannonLength = this.aimDirection.multiply(config.CANNON_TO_BASE_Y_OFFSET + config.BULLET_Y_OFFSET);
-    this.bullet.x = this.cannonPoint.x + cannonLength.x - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
-    this.bullet.y = this.cannonPoint.y + cannonLength.y - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
-    this.bullet.active = true;
-    this.bullet.vx = 0;
-    this.bullet.vy = 0;
-    this.bullet.view.style.visible = true;
-
-    if(!this.nextBulletType)
-      this.nextBulletType = config.COLORS.BLUE; // Cosmetic: Should only happen if the game is over
-
-    // Set image for the bullet and the upcoming one
-    this.nextBullet.updateOpts({
-      image: this.cachedResources['bubble_' + this.nextBulletType]
-    });
-    this.bullet.view.updateOpts({
-      image: this.cachedResources['bubble_' + this.currentBulletType]
-    });
-  };
+// --------------------
+//
+// Tick and other functions called every frame
+// 
+// --------------------
 
   /**
    * Is called every frame and updates the game elements
@@ -345,6 +290,93 @@ exports = Class(GC.Application, function () {
   };
 
   /**
+   * Called every frame. Updates the position of the dotted line that helps you aim.
+   */
+  this.updateAimHelper = function() {
+    if(!this.aimPoint) {
+      // Hide helper
+      for(let p = 0; p<config.HELPER_POINTS; p++) {
+        const point = this.aimHelperPoints[p];
+        point.updateOpts({ visible: false });
+      }
+      return;
+    }
+
+    let direction = new Vec2D(this.aimDirection);
+    let currentPoint = this.cannonPoint;
+    const padding = 5;
+
+    currentPoint = currentPoint.add(direction.multiply(80 + config.HELPER_POINTS_SPACING));
+
+    // For each point, place it along the line.
+    for(let p = 0; p<config.HELPER_POINTS; p++) {
+      const point = this.aimHelperPoints[p];
+
+      // If the line hits a wall, bounce
+      if(currentPoint.x < 0) {
+        currentPoint.x = padding;
+        direction.x *= -1;
+      } else if(currentPoint.x > config.BASE_WIDTH) {
+        currentPoint.x = config.BASE_WIDTH - padding - point.style.width;
+        direction.x *= -1;
+      }
+
+      point.updateOpts({
+        visible: true,
+        x: currentPoint.x - 3,
+        y: currentPoint.y, 
+        // The line has the color of the bubble about to be shot
+        image: 'resources/images/helpers/helper_' + this.currentBulletType + '.png'
+      });
+
+      currentPoint = currentPoint.add(direction.multiply(config.HELPER_POINTS_SPACING));
+    }
+  };
+
+// --------------------
+//
+// Game Workflow (menus, pause, inputs)
+// 
+// --------------------
+
+  /**
+   * Allows enabling/disabling player input, for instance when pausing the game.
+   * @arg {boolean} [_enable]
+   */
+  this.toggleInputs = function(_enable) {
+    this.enableInputs = _enable;
+  };
+
+  /**
+   * Opens the menu screen and pauses the game.
+   * @arg {object} [_menuOpts]
+   * @see Menu#open for all available options
+   */
+  this.openPauseScreen = function(_menuOpts) {
+    this.menu.open(_menuOpts);
+    this.toggleInputs(false);
+    this.setScoreViewMode(true);
+  };
+
+  /**
+   * Removes menu screen and starts the game
+   */
+  this.startGame = function() {
+    this.menu.close();
+    this.toggleInputs(true);
+    this.setScoreViewMode(false);
+  };
+
+  /**
+   * Generates a new game wiping the current one, and start the game
+   * @see Application#generateGame
+   */
+  this.reStartGame = function() {
+    this.generateGame();
+    this.startGame();
+  };
+
+  /**
    * Changes the way we show the score view. If it's on the menu it should be big and centered.
    * @arg {boolean} [_isInMenu]
    */
@@ -368,80 +400,12 @@ exports = Class(GC.Application, function () {
     }
   };
 
-  /**
-   * Pops bubbles that need to be popped (called every frame). Since it runs every `POP_FREQUENCY` frame,
-   * We pop only one bubble per call, this way we get a nice effect of bubbles popping one after another.
-   * @see Application#triggerGridTest
-   */
-  this.popBubbles = function() {
-    if(!this.bubblesToDelete.length)
-      return;
 
-    if(this.frame % config.POP_FREQUENCY != 0)
-      return;
-
-    // Get the bubble we're going to pop
-    const bubble = this.bubblesToDelete.pop();
-    bubble.active = false;
-
-    // Compute score
-    // If you pop a bubble that is floating in the air you get a bonus
-    const scoreDiff = bubble.floating ? config.BUBBLE_FLOATING_SCORE : config.BUBBLE_ATTACHED_SCORE
-    this.score += scoreDiff;
-
-    // Add explosion on the bubble
-    effects.explode(bubble.view);
-    // Make the score pop out.
-    // I only managed to get a rather poor effect but the goal is to get the score moving
-    // to catch the eye and create a mental link between score and bubbles popping
-    animate(this.scoreView)
-      .now({ scale: 2.5 }, 100)
-      .then({ scale: 1.8 }, 100);
-
-    // Spawn a ScoreHelper. @see ScoreHelper
-    var scoreHelper = this.scoreHelpers.obtain(bubble.x, bubble.y, {
-      superview: this.view,
-      layout: 'box',
-      width: scoreDiff === 1 ? 30 : 40,
-      height: scoreDiff === 1 ? 30 : 33,
-      // NB: I tried caching these using Image like bubble images but Entity wouldn't let me
-      image: scoreDiff === 1 ? 'resources/images/scoreDigits/pop_plus_1.png' : 'resources/images/scoreDigits/pop_plus_2_' + bubble.type + '.png',
-      zIndex: 40
-    });
-    scoreHelper.timer = 0;
-    animate(scoreHelper.view)
-      .now({ scale: 4 }, 100)
-      .then({ scale: 1.5 }, 100);
-
-    // Actually release the bubble from the pool
-    bubble.release();
-  };
-
-  /**
-   * Scans the map to check what colors are available. We don't want to load the cannon with bubble colors that
-   * are not on the grid.
-   */
-  this.updateAvailableColors = function() {
-    this.availableColors = {};
-    const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
-    activeBubbles.forEach(b => {
-      this.availableColors[b.type] = b.type;
-    });
-  };
-
-  /**
-   * Creates a bubble by requiring it from the pool and registers it into the grid.
-   * @arg {string} [_type] the color of the bubble
-   * @arg {float} [_col] column of the bubble in the grid
-   * @arg {float} [_row] row of the bubble in the grid
-   * @see HexGrid#register
-   * @see Bubbles#obtain
-   */
-  this.insertInGrid = function(_type, _col, _row) {
-    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view, image: this.cachedResources['bubble_' + _type]});
-    this.grid.register(bb, _col, _row);
-    return bb;
-  };
+// --------------------
+//
+// Gameplay functions
+// 
+// --------------------
 
   /**
    * Triggers when the bullet collides with an element from the grid
@@ -463,6 +427,29 @@ exports = Class(GC.Application, function () {
     this.triggerGridTest(newBubble);
     this.updateAvailableColors();
     this.discardBullet();
+  };
+
+  /**
+   * Tests if a bullet has hit a the borders of the game
+   */
+  this.testBulletAgainstWalls = function() {
+    // Up & Down wall: discard
+    const bulletScaledSize = config.BULLET_SCALE * config.BUBBLE_SIZE;
+    if(this.bullet.y <= 0 || this.bullet.y >= config.BASE_HEIGHT - bulletScaledSize) {
+      this.discardBullet();
+      return true;
+    }
+
+    // Left & Right walls: bounce
+    if(this.bullet.x <= 0 && this.bullet.vx < 0
+    || this.bullet.x >= config.BASE_WIDTH - bulletScaledSize  && this.bullet.vx > 0) {
+      if(this.isDiscarding) { // Exception: when you shoot below the horizon
+        this.discardBullet();
+        return true;
+      }
+      
+      this.bullet.vx *= -1;
+    }
   };
 
   /**
@@ -539,26 +526,15 @@ exports = Class(GC.Application, function () {
   };
 
   /**
-   * Tests if a bullet has hit a the borders of the game
+   * Scans the map to check what colors are available. We don't want to load the cannon with bubble colors that
+   * are not on the grid.
    */
-  this.testBulletAgainstWalls = function() {
-    // Up & Down wall: discard
-    const bulletScaledSize = config.BULLET_SCALE * config.BUBBLE_SIZE;
-    if(this.bullet.y <= 0 || this.bullet.y >= config.BASE_HEIGHT - bulletScaledSize) {
-      this.discardBullet();
-      return true;
-    }
-
-    // Left & Right walls: bounce
-    if(this.bullet.x <= 0 && this.bullet.vx < 0
-    || this.bullet.x >= config.BASE_WIDTH - bulletScaledSize  && this.bullet.vx > 0) {
-      if(this.isDiscarding) { // Exception: when you shoot below the horizon
-        this.discardBullet();
-        return true;
-      }
-      
-      this.bullet.vx *= -1;
-    }
+  this.updateAvailableColors = function() {
+    this.availableColors = {};
+    const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
+    activeBubbles.forEach(b => {
+      this.availableColors[b.type] = b.type;
+    });
   };
 
   /**
@@ -586,63 +562,60 @@ exports = Class(GC.Application, function () {
   };
 
   /**
-   * Remove the bullet from the screen as it has hit something.
-   * @see Application#resetBullet
+   * Pops bubbles that need to be popped (called every frame). Since it runs every `POP_FREQUENCY` frame,
+   * We pop only one bubble per call, this way we get a nice effect of bubbles popping one after another.
+   * @see Application#triggerGridTest
    */
-  this.discardBullet = function() {
-    this.isShooting = false;
-    this.bullet.active = false;
-    this.bullet.view.style.visible = false;
-    this.bullet.x = -999;
-    this.bullet.vx = 0;
-
-    this.currentBulletType = this.nextBulletType;
-    this.nextBulletType = Tools.randomProperty(this.availableColors);
-  };
-
-  /**
-   * Called every frame. Updates the position of the dotted line that helps you aim.
-   */
-  this.updateAimHelper = function() {
-    if(!this.aimPoint) {
-      // Hide helper
-      for(let p = 0; p<config.HELPER_POINTS; p++) {
-        const point = this.aimHelperPoints[p];
-        point.updateOpts({ visible: false });
-      }
+  this.popBubbles = function() {
+    if(!this.bubblesToDelete.length)
       return;
-    }
 
-    let direction = new Vec2D(this.aimDirection);
-    let currentPoint = this.cannonPoint;
-    const padding = 5;
+    if(this.frame % config.POP_FREQUENCY != 0)
+      return;
 
-    currentPoint = currentPoint.add(direction.multiply(80 + config.HELPER_POINTS_SPACING));
+    // Get the bubble we're going to pop
+    const bubble = this.bubblesToDelete.pop();
+    bubble.active = false;
 
-    // For each point, place it along the line.
-    for(let p = 0; p<config.HELPER_POINTS; p++) {
-      const point = this.aimHelperPoints[p];
+    // Compute score
+    // If you pop a bubble that is floating in the air you get a bonus
+    const scoreDiff = bubble.floating ? config.BUBBLE_FLOATING_SCORE : config.BUBBLE_ATTACHED_SCORE
+    this.score += scoreDiff;
 
-      // If the line hits a wall, bounce
-      if(currentPoint.x < 0) {
-        currentPoint.x = padding;
-        direction.x *= -1;
-      } else if(currentPoint.x > config.BASE_WIDTH) {
-        currentPoint.x = config.BASE_WIDTH - padding - point.style.width;
-        direction.x *= -1;
-      }
+    // Add explosion on the bubble
+    effects.explode(bubble.view);
+    // Make the score pop out.
+    // I only managed to get a rather poor effect but the goal is to get the score moving
+    // to catch the eye and create a mental link between score and bubbles popping
+    animate(this.scoreView)
+      .now({ scale: 2.5 }, 100)
+      .then({ scale: 1.8 }, 100);
 
-      point.updateOpts({
-        visible: true,
-        x: currentPoint.x - 3,
-        y: currentPoint.y, 
-        // The line has the color of the bubble about to be shot
-        image: 'resources/images/helpers/helper_' + this.currentBulletType + '.png'
-      });
+    // Spawn a ScoreHelper. @see ScoreHelper
+    var scoreHelper = this.scoreHelpers.obtain(bubble.x, bubble.y, {
+      superview: this.view,
+      layout: 'box',
+      width: scoreDiff === 1 ? 30 : 40,
+      height: scoreDiff === 1 ? 30 : 33,
+      // NB: I tried caching these using Image like bubble images but Entity wouldn't let me
+      image: scoreDiff === 1 ? 'resources/images/scoreDigits/pop_plus_1.png' : 'resources/images/scoreDigits/pop_plus_2_' + bubble.type + '.png',
+      zIndex: 40
+    });
+    scoreHelper.timer = 0;
+    animate(scoreHelper.view)
+      .now({ scale: 4 }, 100)
+      .then({ scale: 1.5 }, 100);
 
-      currentPoint = currentPoint.add(direction.multiply(config.HELPER_POINTS_SPACING));
-    }
+    // Actually release the bubble from the pool
+    bubble.release();
   };
+
+
+// --------------------
+//
+// Gameplay functions: Player Inputs
+// 
+// --------------------
 
   /**
    * Called when the user clicks. It will define the point where the player is aiming
@@ -697,6 +670,68 @@ exports = Class(GC.Application, function () {
   };
 
   /**
+   * Places the bullet back at the top of the cannon and sets its properties
+   */
+  this.resetBullet = function() {
+    // Reset properties
+    const cannonLength = this.aimDirection.multiply(config.CANNON_TO_BASE_Y_OFFSET + config.BULLET_Y_OFFSET);
+    this.bullet.x = this.cannonPoint.x + cannonLength.x - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
+    this.bullet.y = this.cannonPoint.y + cannonLength.y - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
+    this.bullet.active = true;
+    this.bullet.vx = 0;
+    this.bullet.vy = 0;
+    this.bullet.view.style.visible = true;
+
+    if(!this.nextBulletType)
+      this.nextBulletType = config.COLORS.BLUE; // Cosmetic: Should only happen if the game is over
+
+    // Set image for the bullet and the upcoming one
+    this.nextBullet.updateOpts({
+      image: this.cachedResources['bubble_' + this.nextBulletType]
+    });
+    this.bullet.view.updateOpts({
+      image: this.cachedResources['bubble_' + this.currentBulletType]
+    });
+  };
+
+  /**
+   * Remove the bullet from the screen as it has hit something.
+   * @see Application#resetBullet
+   */
+  this.discardBullet = function() {
+    this.isShooting = false;
+    this.bullet.active = false;
+    this.bullet.view.style.visible = false;
+    this.bullet.x = -999;
+    this.bullet.vx = 0;
+
+    this.currentBulletType = this.nextBulletType;
+    this.nextBulletType = Tools.randomProperty(this.availableColors);
+  };
+
+
+// --------------------
+//
+// Gameplay functions: Generating and managing grid
+// 
+// --------------------
+
+
+  /**
+   * Creates a bubble by requiring it from the pool and registers it into the grid.
+   * @arg {string} [_type] the color of the bubble
+   * @arg {float} [_col] column of the bubble in the grid
+   * @arg {float} [_row] row of the bubble in the grid
+   * @see HexGrid#register
+   * @see Bubbles#obtain
+   */
+  this.insertInGrid = function(_type, _col, _row) {
+    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view, image: this.cachedResources['bubble_' + _type]});
+    this.grid.register(bb, _col, _row);
+    return bb;
+  };
+
+  /**
    * Wipes and rebuilds all the gameplay data needed to build the game.
    */
   this.generateGame = function() {
@@ -744,11 +779,11 @@ exports = Class(GC.Application, function () {
 });
 
 
-//---------------------------
+//===========================
 //
 //   The following classes should be in separate files. However to save time I left them here
 //
-//---------------------------
+//===========================
 
 /**
  * Class reprenting a bubble in the hex grid. This is entity is going to be pooled.
