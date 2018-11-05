@@ -276,6 +276,7 @@ exports = Class(GC.Application, function () {
    * Places the bullet back at the top of the cannon and sets its properties
    */
   this.resetBullet = function() {
+    // Reset properties
     const cannonLength = this.aimDirection.multiply(config.CANNON_TO_BASE_Y_OFFSET + config.BULLET_Y_OFFSET);
     this.bullet.x = this.cannonPoint.x + cannonLength.x - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
     this.bullet.y = this.cannonPoint.y + cannonLength.y - config.BULLET_SCALE * config.BUBBLE_SIZE / 2;
@@ -287,6 +288,7 @@ exports = Class(GC.Application, function () {
     if(!this.nextBulletType)
       this.nextBulletType = config.COLORS.BLUE; // Cosmetic: Should only happen if the game is over
 
+    // Set image for the bullet and the upcoming one
     this.nextBullet.updateOpts({
       image: this.cachedResources['bubble_' + this.nextBulletType]
     });
@@ -302,6 +304,7 @@ exports = Class(GC.Application, function () {
   this.tick = function(_dt) {
     this.bullet.update(_dt);
 
+    // For performance reasons we don't update the whole grid every frame, but every `DEBOUNCE_BUBBLE_UPDATE` 
     if(this.frame % config.DEBOUNCE_BUBBLE_UPDATE === 0) {
       this.bubbles.update(_dt);
       this.scoreHelpers.update(_dt);
@@ -316,9 +319,10 @@ exports = Class(GC.Application, function () {
     */
     this.updateAimHelper(_dt);
 
+    // isShooting means the bullet is in the air and we need to test it for collisions
     if(this.isShooting) {
-      if(!this.testBulletAgainstWalls()) {
-        this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
+      if(!this.testBulletAgainstWalls()) {  // Collision with a wall
+        this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this); // Collision with the grid
       }
     } else {
       this.resetBullet();
@@ -333,6 +337,7 @@ exports = Class(GC.Application, function () {
    * @arg {float} [_dt]
    */
   this.updateUIElements = function(_dt) {
+    // For performance reasons we don't update the UI every frame because it only changes so often
     if(this.frame % config.DEBOUNCE_UI_UPDATE !== 0)
       return;
 
@@ -375,9 +380,12 @@ exports = Class(GC.Application, function () {
     if(this.frame % config.POP_FREQUENCY != 0)
       return;
 
+    // Get the bubble we're going to pop
     const bubble = this.bubblesToDelete.pop();
     bubble.active = false;
 
+    // Compute score
+    // If you pop a bubble that is floating in the air you get a bonus
     const scoreDiff = bubble.floating ? config.BUBBLE_FLOATING_SCORE : config.BUBBLE_ATTACHED_SCORE
     this.score += scoreDiff;
 
@@ -390,13 +398,14 @@ exports = Class(GC.Application, function () {
       .now({ scale: 2.5 }, 100)
       .then({ scale: 1.8 }, 100);
 
+    // Spawn a ScoreHelper. @see ScoreHelper
     var scoreHelper = this.scoreHelpers.obtain(bubble.x, bubble.y, {
       superview: this.view,
       layout: 'box',
       width: scoreDiff === 1 ? 30 : 40,
       height: scoreDiff === 1 ? 30 : 33,
       // NB: I tried caching these using Image like bubble images but Entity wouldn't let me
-      image: scoreDiff === 1 ? 'resources/images/scoreDigits/pop_plus_1.png' : 'resources/images/scoreDigits/pop_plus_2_'+bubble.type+'.png',
+      image: scoreDiff === 1 ? 'resources/images/scoreDigits/pop_plus_1.png' : 'resources/images/scoreDigits/pop_plus_2_' + bubble.type + '.png',
       zIndex: 40
     });
     scoreHelper.timer = 0;
@@ -404,6 +413,7 @@ exports = Class(GC.Application, function () {
       .now({ scale: 4 }, 100)
       .then({ scale: 1.5 }, 100);
 
+    // Actually release the bubble from the pool
     bubble.release();
   };
 
@@ -414,7 +424,7 @@ exports = Class(GC.Application, function () {
   this.updateAvailableColors = function() {
     this.availableColors = {};
     const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
-    activeBubbles.forEach((b)=>{
+    activeBubbles.forEach(b => {
       this.availableColors[b.type] = b.type;
     });
   };
@@ -440,12 +450,14 @@ exports = Class(GC.Application, function () {
   this.onBulletCollision = function(_bubble) {
     const bulletCenter = new Vec2D({x: this.bullet.x + config.BULLET_SCALED_SIZE / 3, y: this.bullet.y + config.BULLET_SCALED_SIZE / 3});
 
+    // Find the closest position of the bullet in the grid
     const row = Math.floor(bulletCenter.y / config.GRID_ITEM_HEIGHT);
     let col = Math.floor((bulletCenter.x - ((row % 2) * config.GRID_ITEM_WIDTH / 2)) / config.GRID_ITEM_WIDTH);
 
     // Clamp column
     col = Math.max(0, Math.min(config.GRID_WIDTH - (row % 2 ? 2 : 1), col));
 
+    // Create the new bubble
     const newBubble = this.insertInGrid(this.currentBulletType, col, row);
 
     this.triggerGridTest(newBubble);
@@ -461,19 +473,26 @@ exports = Class(GC.Application, function () {
    * @see HexGrid#getCluster
    */
   this.triggerGridTest = function(_bubble) {
+    // Find the cluster of bubbles of the same type around the bubble
     let toBeDeleted = this.grid.getCluster([_bubble], (b)=>b.type ===_bubble.type);
 
+    // If it's less than `MIN_BUBBLES_TO_POP` (3) we don't need to pop bubble
     if(toBeDeleted.length < config.MIN_BUBBLES_TO_POP) {
+      // Check if the game has been lost with this move
       this.checkDefeat(_bubble);
       return;
     }
 
+    // Flag all bubbles of the cluster for deletion
     for(let i = 0; i<toBeDeleted.length; i++) {
       toBeDeleted[i].toBeDeleted = true;
     }
 
+    // Now that the bubbles are flagged for deletion we can find the "floating" bubbles
     toBeDeleted.push(...this.findFloatingBubbles());
 
+    // Push all bubbles to delete in the `bubblesToDelete` array to delete them later
+    // @see popBubbles
     this.bubblesToDelete = [];
     while(toBeDeleted.length) {
       const bubbleToPop = toBeDeleted.pop();
@@ -482,11 +501,13 @@ exports = Class(GC.Application, function () {
       this.bubblesToDelete.push(bubbleToPop); // We're delaying poping bubbles just for the cool effect
     }
 
+    // Check if the game has been won with this move
     this.checkVictory();
   };
 
   /**
-   * Checks defeat conditions and triggers defeat endscreen if needed
+   * Checks defeat conditions and triggers defeat endscreen if needed.
+   * Defeat condition: the grid reaches `GRID_DEFEAT_THRESHOLD` lines
    * @arg {Bubble} [_bubble] most recently inserted bubble
    */
   this.checkDefeat = function(_bubble) {
@@ -502,10 +523,11 @@ exports = Class(GC.Application, function () {
 
   /**
    * Checks victory conditions and triggers victory endscreen if needed
+   * Victory condition: no bubbles remaining
    * @arg {Bubble} [_bubble] most recently inserted bubble
    */
   this.checkVictory = function() {
-    const activeBubbles = this.bubbles.entities.filter((b)=>b.active&&!b.toBeDeleted);
+    const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
     if(activeBubbles.length)
       return;
 
@@ -552,7 +574,9 @@ exports = Class(GC.Application, function () {
     }
     // Find all attached bubbles
     const attachedCluster = this.grid.getCluster(topRow, b => !b.toBeDeleted); // By not specifying a type we get all types
+    // Find all active bubbles
     const activeBubbles = this.bubbles.entities.filter(b => b.active && !b.toBeDeleted);
+    // Take the difference to find floating bubbles
     const floating = activeBubbles.diff(attachedCluster);
 
     floating.forEach(b=>{
@@ -581,6 +605,7 @@ exports = Class(GC.Application, function () {
    */
   this.updateAimHelper = function() {
     if(!this.aimPoint) {
+      // Hide helper
       for(let p = 0; p<config.HELPER_POINTS; p++) {
         const point = this.aimHelperPoints[p];
         point.updateOpts({ visible: false });
@@ -591,10 +616,14 @@ exports = Class(GC.Application, function () {
     let direction = new Vec2D(this.aimDirection);
     let currentPoint = this.cannonPoint;
     const padding = 5;
+
     currentPoint = currentPoint.add(direction.multiply(80 + config.HELPER_POINTS_SPACING));
+
+    // For each point, place it along the line.
     for(let p = 0; p<config.HELPER_POINTS; p++) {
       const point = this.aimHelperPoints[p];
 
+      // If the line hits a wall, bounce
       if(currentPoint.x < 0) {
         currentPoint.x = padding;
         direction.x *= -1;
@@ -607,6 +636,7 @@ exports = Class(GC.Application, function () {
         visible: true,
         x: currentPoint.x - 3,
         y: currentPoint.y, 
+        // The line has the color of the bubble about to be shot
         image: 'resources/images/helpers/helper_' + this.currentBulletType + '.png'
       });
 
@@ -663,7 +693,6 @@ exports = Class(GC.Application, function () {
 
     effects.explode(this.bullet, config.CANNON_SMOKE_OPTS);
 
-    //debugger;
     delete this.aimPoint;
   };
 
@@ -671,6 +700,7 @@ exports = Class(GC.Application, function () {
    * Wipes and rebuilds all the gameplay data needed to build the game.
    */
   this.generateGame = function() {
+    // Delete existing stuff
     this.frame = 0;
     this.score = 0;
 
@@ -678,6 +708,8 @@ exports = Class(GC.Application, function () {
     this.bubblesToDelete = [];
 
     this.grid && delete this.grid;
+
+    // Generate new stuff
     this.grid = new HexGrid();
 
     this.generateMap();
@@ -702,8 +734,8 @@ exports = Class(GC.Application, function () {
    * Generates the map. This is a very basic map generation that just produces random bubbles
    */
   this.generateMap = function() {
-    for(let i=0;i<config.GRID_HEIGHT;i++){
-      for(let j=0;j<config.GRID_WIDTH - i%2;j++){
+    for(let i = 0; i < config.GRID_HEIGHT; i++){
+      for(let j = 0; j < config.GRID_WIDTH - i % 2; j++){
         this.insertInGrid(Tools.randomProperty(config.COLORS), j, i);
       }
     }
