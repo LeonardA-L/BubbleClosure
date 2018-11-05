@@ -36,14 +36,14 @@ exports = Class(GC.Application, function () {
   config.NEXT_BULLET_SCALED_SIZE = config.BUBBLE_SIZE * config.NEXT_BULLET_SCALE;
 
   this.initUI = function () {
-    this.bubbleResources = {};
+    this.cachedResources = {};
     for(var i in config.COLORS) {
       if(config.COLORS.hasOwnProperty(i)) {
         const color = config.COLORS[i];
-        this.bubbleResources[color] = new Image({url: 'resources/images/bubbles/ball_' + color + '.png'});
+        this.cachedResources['bubble_' + color] = new Image({url: 'resources/images/bubbles/ball_' + color + '.png'});
       }
     }
-
+    
     this.aimDirection = new Vec2D({x:0, y:-1});
     this.cannonAngle = 0;
 
@@ -152,9 +152,9 @@ exports = Class(GC.Application, function () {
       layout: 'box',
       x: this.cannonPoint.x,
       y: this.cannonPoint.y,
-      backgroundColor : '#0000FF',
-      width: 10,
-      height: 10
+      backgroundColor : '#FF0000',
+      width: 30,
+      height: 30
     });*/
 
     this.aimHelperPoints = [];
@@ -171,6 +171,7 @@ exports = Class(GC.Application, function () {
     }
     
     this.bubbles = new Bubbles({ parent: this.view });
+    this.scoreHelpers = new ScoreHelpers({ parent: this.view });
 
     this.generateGame();
 
@@ -247,13 +248,25 @@ exports = Class(GC.Application, function () {
     this.bullet.vx = 0;
     this.bullet.vy = 0;
     this.bullet.view.style.visible = true;
+
+    if(!this.nextBulletType)
+      this.nextBulletType = config.COLORS.BLUE; // Cosmetic: Should only happen if the game is over
+
+    this.nextBullet.updateOpts({
+      image: this.cachedResources['bubble_' + this.nextBulletType]
+    });
+    this.bullet.view.updateOpts({
+      image: this.cachedResources['bubble_' + this.currentBulletType]
+    });
   };
 
   this.tick = function(_dt) {
     this.bullet.update(_dt);
 
-    if(this.frame % config.DEBOUNCE_BUBBLE_UPDATE === 0)
+    if(this.frame % config.DEBOUNCE_BUBBLE_UPDATE === 0) {
       this.bubbles.update(_dt);
+      this.scoreHelpers.update(_dt);
+    }
 
     this.updateUIElements(_dt);
     this.updateAimHelper(_dt);
@@ -262,6 +275,8 @@ exports = Class(GC.Application, function () {
       if(!this.testBulletAgainstWalls()) {
         this.bubbles.onFirstCollision(this.bullet, this.onBulletCollision, this);
       }
+    } else {
+      this.resetBullet();
     }
 
     this.popBubbles();
@@ -305,7 +320,8 @@ exports = Class(GC.Application, function () {
     const bubble = this.bubblesToDelete.pop();
     bubble.active = false;
 
-    this.score += bubble.floating ? config.BUBBLE_FLOATING_SCORE : config.BUBBLE_ATTACHED_SCORE;
+    const scoreDiff = bubble.floating ? config.BUBBLE_FLOATING_SCORE : config.BUBBLE_ATTACHED_SCORE
+    this.score += scoreDiff;
 
     // Add explosion on the bubble
     effects.explode(bubble.view);
@@ -315,6 +331,20 @@ exports = Class(GC.Application, function () {
     animate(this.scoreView)
       .now({ scale: 2.5 }, 100)
       .then({ scale: 1.8 }, 100);
+
+    var scoreHelper = this.scoreHelpers.obtain(bubble.x, bubble.y, {
+      superview: this.view,
+      layout: 'box',
+      width: scoreDiff === 1 ? 30 : 40,
+      height: scoreDiff === 1 ? 30 : 33,
+      // NB: I tried caching these using Image like bubble images but Entity wouldn't let me
+      image: scoreDiff === 1 ? 'resources/images/scoreDigits/pop_plus_1.png' : 'resources/images/scoreDigits/pop_plus_2_'+bubble.type+'.png',
+      zIndex: 40
+    });
+    scoreHelper.timer = 0;
+    animate(scoreHelper.view)
+      .now({ scale: 4 }, 100)
+      .then({ scale: 1.5 }, 100);
 
     bubble.release();
   };
@@ -328,16 +358,17 @@ exports = Class(GC.Application, function () {
   };
 
   this.insertInGrid = function(_type, _col, _row) {
-    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view, image: this.bubbleResources[_type]});
+    const bb = this.bubbles.obtain(_type, _col, _row, {superview: this.view, image: this.cachedResources['bubble_' + _type]});
     this.grid.register(bb, _col, _row);
     return bb;
   };
 
   this.onBulletCollision = function(_bubble) {
     const bulletCenter = new Vec2D({x: this.bullet.x + config.BULLET_SCALED_SIZE / 3, y: this.bullet.y + config.BULLET_SCALED_SIZE / 3});
-    
+
     const row = Math.floor(bulletCenter.y / config.GRID_ITEM_HEIGHT);
     let col = Math.floor((bulletCenter.x - ((row % 2) * config.GRID_ITEM_WIDTH / 2)) / config.GRID_ITEM_WIDTH);
+
     // Clamp column
     col = Math.max(0, Math.min(config.GRID_WIDTH - (row % 2 ? 2 : 1), col));
     const newBubble = this.insertInGrid(this.currentBulletType, col, row);
@@ -440,19 +471,11 @@ exports = Class(GC.Application, function () {
     this.isShooting = false;
     this.bullet.active = false;
     this.bullet.view.style.visible = false;
-    this.currentBulletType = this.nextBulletType;
-    this.bullet.view.updateOpts({
-      image: this.bubbleResources[this.currentBulletType]
-    });
-    this.nextBulletType = Tools.randomProperty(this.availableColors);
-    if(!this.nextBulletType)
-      this.nextBulletType = config.COLORS.BLUE; // Cosmetic: Should only happen if the game is over
-    this.nextBullet.updateOpts({
-      image: this.bubbleResources[this.nextBulletType]
-    });
     this.bullet.x = -999;
     this.bullet.vx = 0;
-    this.resetBullet();
+
+    this.currentBulletType = this.nextBulletType;
+    this.nextBulletType = Tools.randomProperty(this.availableColors);
   };
 
   this.updateAimHelper = function() {
@@ -534,6 +557,7 @@ exports = Class(GC.Application, function () {
 
   this.reset = function(){
     this.bubbles.reset();
+    this.scoreHelpers.reset();
   };
 
   this.generateGame = function() {
@@ -554,11 +578,11 @@ exports = Class(GC.Application, function () {
     this.nextBulletType = Tools.randomProperty(this.availableColors);
 
     this.nextBullet.updateOpts({
-      image: this.bubbleResources[this.nextBulletType]
+      image: this.cachedResources['bubble_' + this.nextBulletType]
     });
 
     this.bullet.view.updateOpts({
-      image: this.bubbleResources[this.currentBulletType]
+      image: this.cachedResources['bubble_' + this.currentBulletType]
     });
     this.bullet.bubbleType = this.currentBulletType;
     this.resetBullet();
@@ -624,5 +648,28 @@ var Bubbles = Class(EntityPool, function() {
     }, _opts);
 
     return sup.obtain.call(this, 0, 0, opts);
+  };
+});
+
+var ScoreHelper = Class(Entity, function() {
+  var sup = Entity.prototype;
+  this.name = 'ScoreHelper';
+  this.timerMax = config.SCORE_HELPER_TIMER_MAX;
+  this.timer = 0;
+
+  this.update = function(_dt) {
+    this.timer += _dt;
+    if(this.timer >= this.timerMax) {
+      this.release();
+    }
+  }
+});
+
+var ScoreHelpers = Class(EntityPool, function() {
+  var sup = EntityPool.prototype;
+
+  this.init = function(opts) {
+    opts.ctor = ScoreHelper;
+    sup.init.call(this, opts);
   };
 });

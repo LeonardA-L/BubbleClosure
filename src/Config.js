@@ -26,7 +26,7 @@ exports = {
   POP_FREQUENCY: 2, // in frames
 
   DEBOUNCE_UI_UPDATE: 4,
-  DEBOUNCE_BUBBLE_UPDATE: 4,
+  DEBOUNCE_BUBBLE_UPDATE: 2,
 
   BUBBLE_FLOATING_SCORE: 2,
   BUBBLE_ATTACHED_SCORE: 1,
@@ -64,5 +64,7 @@ exports = {
     },
 
     zIndex: 60
-  }
+  },
+
+  SCORE_HELPER_TIMER_MAX: 700
 }
